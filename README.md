@@ -29,8 +29,10 @@ of their submission.
 2. Fill in **Form Configuration** — tool title, subtitle, welcome pop‑up text,
    Moodle submission URL and the label used in the downloaded filename.
 3. Click blocks in the left‑hand **Block Palette** to add them to the canvas.
-   Drag the grip handle (or use the ▲▼ buttons) to reorder; expand a block to
-   configure its title, help text, requirements and options.
+   Drag the grip handle to reorder; expand a block to configure its title, help
+   text, requirements and options. Tick **Start on a new page** on a block to
+   force a page break before that section in the generated Word document — use it
+   for heavy sections such as the Script, Reflection or Reference List.
 4. **Preview** shows the student form; **Export HTML** downloads the finished
    standalone form.
 5. **Schema / Load** save and restore the build as a JSON file. Work also
