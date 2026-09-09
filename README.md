@@ -34,7 +34,7 @@ of their submission.
    force a page break before that section in the generated Word document — use it
    for heavy sections such as the Script, Reflection or Reference List.
 4. **Preview** shows the student form; **Export HTML** downloads the finished
-   standalone form.
+   standalone form. [`example.html`](example.html) is a sample exported form.
 5. **Schema / Load** save and restore the build as a JSON file. Work also
    autosaves to the browser's local storage.
 
