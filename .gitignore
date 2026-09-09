@@ -1,0 +1,10 @@
+# Ignore everything in this working folder by default.
+# Only the Submission Builder tool, its README and assets are tracked for now.
+*
+
+# Re-include the things we do want in the repo
+!.gitignore
+!README.md
+!builder-builder.html
+!assets/
+!assets/**

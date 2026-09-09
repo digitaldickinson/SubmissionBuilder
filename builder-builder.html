@@ -1,0 +1,2421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Submission Builder Builder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .palette-card { transition: border-color 0.15s, background-color 0.15s; }
+        .canvas-block { transition: box-shadow 0.2s; }
+        .canvas-block.drag-over { border-top: 3px solid #6366f1; }
+        .drag-handle { cursor: grab; color: #94a3b8; padding: 2px 3px; border-radius: 4px; }
+        .drag-handle:hover { color: #64748b; background: #f1f5f9; }
+        .bb-input { width: 100%; padding: 7px 10px; border: 1px solid #e2e8f0; border-radius: 7px; font-size: 13px; outline: none; transition: border-color 0.15s, box-shadow 0.15s; font-family: 'Segoe UI', sans-serif; }
+        .bb-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+        .bb-label { display: block; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden bg-slate-100 text-slate-800">
+
+    <!-- ─── Header ──────────────────────────────────────────────────────────── -->
+    <header class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between flex-shrink-0 border-b border-slate-800">
+        <div>
+            <h1 class="text-lg font-bold tracking-tight">SUBMISSION BUILDER BUILDER <span class="text-slate-500 font-normal text-sm">v1.9</span></h1>
+            <p class="text-slate-400 text-xs mt-0.5">Compose a student submission form, then export it as a standalone HTML file</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <div class="flex items-center gap-1.5">
+                <button type="button" onclick="exportSchema()" title="Download builder schema as JSON"
+                    class="bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white font-bold py-2 px-3.5 rounded-lg flex items-center gap-1.5 text-xs transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Schema
+                </button>
+                <label title="Load a saved builder schema" class="cursor-pointer bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white font-bold py-2 px-3.5 rounded-lg flex items-center gap-1.5 text-xs transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    Load
+                    <input type="file" accept=".json" class="hidden" onchange="importSchema(event)">
+                </label>
+                <button type="button" onclick="resetBuilder()" title="Clear canvas and start a new form"
+                    class="bg-slate-700 hover:bg-red-700 text-slate-400 hover:text-white font-bold py-2 px-3.5 rounded-lg flex items-center gap-1.5 text-xs transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                    Reset
+                </button>
+                <span id="autoSaveIndicator" class="text-xs text-slate-500 ml-1 hidden">Saved</span>
+            </div>
+            <div class="w-px h-6 bg-slate-700"></div>
+            <button type="button" onclick="previewForm()"
+                class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 px-5 rounded-lg flex items-center gap-2 text-sm transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                Preview
+            </button>
+            <button type="button" id="exportBtn" onclick="exportForm()"
+                class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-lg flex items-center gap-2 text-sm transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13l4 4 4-4"/><path d="M12 17V9"/></svg>
+                Export HTML
+            </button>
+        </div>
+    </header>
+
+    <!-- ─── Main ─────────────────────────────────────────────────────────────── -->
+    <div class="flex flex-1 overflow-hidden">
+
+        <!-- Left: Block Palette -->
+        <aside class="w-72 bg-white border-r border-slate-200 overflow-y-auto flex-shrink-0">
+            <div class="px-4 pt-5 pb-2">
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Block Palette</p>
+                <p class="text-xs text-slate-400 mt-1">Click a block to add it to the canvas</p>
+            </div>
+            <div id="palette" class="px-3 pb-4 pt-2"></div>
+        </aside>
+
+        <!-- Right: Canvas -->
+        <main class="flex-1 overflow-y-auto p-6 space-y-6">
+
+            <!-- Form-level configuration -->
+            <div class="bg-indigo-50 rounded-xl border border-indigo-200 shadow-sm">
+                <div class="px-5 py-3.5 border-b border-indigo-200 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-400"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <h2 class="text-sm font-bold text-indigo-700">Form Configuration</h2>
+                    <span class="ml-auto text-xs text-indigo-400 font-medium">Not part of the form</span>
+                </div>
+                <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="bb-label">Tool Title <span class="text-red-400 normal-case font-normal">*</span></label>
+                        <input type="text" id="cfg-title" class="bb-input" placeholder="e.g. MPJ2 Submission Builder">
+                    </div>
+                    <div>
+                        <label class="bb-label">Subtitle</label>
+                        <input type="text" id="cfg-subtitle" class="bb-input" placeholder="e.g. Assemble your final portfolio submission">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="bb-label">Welcome PopUp Text</label>
+                        <textarea id="cfg-welcome" rows="3" class="bb-input resize-none" placeholder="Introductory text shown to students when they first open the tool..."></textarea>
+                    </div>
+                    <div>
+                        <label class="bb-label">Moodle Submission URL</label>
+                        <input type="url" id="cfg-moodle" class="bb-input" placeholder="https://moodle.mmu.ac.uk/...">
+                    </div>
+                    <div>
+                        <label class="bb-label">Filename Label</label>
+                        <input type="text" id="cfg-label" class="bb-input" placeholder="e.g. MPJ2 — used in the downloaded filename">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Canvas blocks -->
+            <div id="canvas-blocks" class="space-y-3"></div>
+
+            <!-- Empty state -->
+            <div id="canvas-empty" class="text-center py-24">
+                <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-slate-200 mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+                </div>
+                <p class="font-bold text-slate-400 text-sm">Canvas is empty</p>
+                <p class="text-xs text-slate-400 mt-1">Click a block in the palette on the left to add it to your form</p>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- ─── Preview Modal ────────────────────────────────────────────────────── -->
+    <div id="previewModal" class="hidden fixed inset-0 z-50 flex flex-col">
+        <div class="flex items-center justify-between px-5 py-3 bg-slate-800 flex-shrink-0">
+            <div class="flex items-center gap-2.5">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <span class="text-white font-bold text-sm">Form Preview</span>
+                <span class="text-slate-400 text-xs">— layout only, interactions disabled</span>
+            </div>
+            <button type="button" onclick="closePreview()"
+                class="text-slate-400 hover:text-white text-sm font-bold px-3 py-1.5 rounded-lg hover:bg-slate-700 transition-colors">
+                ✕ Close
+            </button>
+        </div>
+        <iframe id="previewIframe" title="Form preview" class="flex-1 border-0 bg-white" sandbox="allow-scripts allow-same-origin"></iframe>
+    </div>
+
+    <script>
+        // ─── Block Definitions ─────────────────────────────────────────────────
+        const BLOCK_DEFS = {
+            'student-identity': {
+                label: 'Student Identity',
+                description: 'Name and student ID fields. Typically the first section.',
+                colorBg:   'bg-indigo-100',
+                colorText: 'text-indigo-700',
+                hoverCls:  'hover:bg-indigo-50 hover:border-indigo-300',
+                icon: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+                defaultConfig: {
+                    title: 'Your Details',
+                    subtitle: ''
+                }
+            },
+            'text-upload': {
+                label: 'Text + Upload',
+                description: 'Rich text editor with optional .docx upload and word count target.',
+                colorBg:   'bg-violet-100',
+                colorText: 'text-violet-700',
+                hoverCls:  'hover:bg-violet-50 hover:border-violet-300',
+                icon: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`,
+                defaultConfig: {
+                    title: 'Reflection',
+                    subtitle: '',
+                    required: true,
+                    uploadEnabled: false,
+                    uploadOnly: false,
+                    wcEnabled: false,
+                    wcMin: 900,
+                    wcMax: 1100,
+                    helperLabel: '',
+                    helperUrl: ''
+                }
+            },
+            'contacts': {
+                label: 'Contacts',
+                description: 'Repeating rows: name, phone, email, purpose, demographics.',
+                colorBg:   'bg-emerald-100',
+                colorText: 'text-emerald-700',
+                hoverCls:  'hover:bg-emerald-50 hover:border-emerald-300',
+                icon: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+                defaultConfig: {
+                    title: 'Contact Details',
+                    subtitle: '',
+                    required: true
+                }
+            },
+            'url-field': {
+                label: 'URL Field',
+                description: 'A single URL input with label and optional helper text.',
+                colorBg:   'bg-sky-100',
+                colorText: 'text-sky-700',
+                hoverCls:  'hover:bg-sky-50 hover:border-sky-300',
+                icon: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>`,
+                defaultConfig: {
+                    title: '',
+                    subtitle: '',
+                    label: 'URL',
+                    required: true,
+                    helperText: ''
+                }
+            },
+            'simple-text': {
+                label: 'Simple Text',
+                description: 'A single-line text input with label and placeholder.',
+                colorBg:   'bg-amber-100',
+                colorText: 'text-amber-700',
+                hoverCls:  'hover:bg-amber-50 hover:border-amber-300',
+                icon: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="13" y1="18" x2="3" y2="18"/></svg>`,
+                defaultConfig: {
+                    title: '',
+                    subtitle: '',
+                    label: 'Text Field',
+                    required: true,
+                    placeholder: ''
+                }
+            },
+
+            'group-identity': {
+                label: 'Group / Team',
+                description: 'Optional group number and team member list for group assignments.',
+                colorBg:   'bg-teal-100',
+                colorText: 'text-teal-700',
+                hoverCls:  'hover:bg-teal-50 hover:border-teal-300',
+                icon: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+                defaultConfig: {
+                    title: 'Group Details',
+                    subtitle: '',
+                    required: false,
+                    showGroupNumber: true,
+                    groupNumberLabel: 'Group Number',
+                    showTeamMembers: true,
+                    teamMembersLabel: 'Team Members'
+                }
+            },
+
+            'grouped-checklist': {
+                label: 'Grouped Checklist',
+                description: 'Grouped checkbox items. All must be ticked before submission.',
+                colorBg:   'bg-orange-100',
+                colorText: 'text-orange-700',
+                hoverCls:  'hover:bg-orange-50 hover:border-orange-300',
+                icon: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`,
+                defaultConfig: {
+                    title: 'Submission Checklist',
+                    subtitle: '',
+                    required: true,
+                    notAssessed: false,
+                    groups: [
+                        { id: 'g1', label: 'Checklist', items: [{ id: 'i1', text: '' }] }
+                    ]
+                }
+            },
+
+            'feedback-targeting': {
+                label: 'Targeted Questions',
+                description: 'Prompted short responses to reflection questions with per-prompt word counts.',
+                colorBg:   'bg-rose-100',
+                colorText: 'text-rose-700',
+                hoverCls:  'hover:bg-rose-50 hover:border-rose-300',
+                icon: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
+                defaultConfig: {
+                    title: 'Feedback',
+                    subtitle: '',
+                    required: false,
+                    notAssessed: true,
+                    prompts: [
+                        { id: 'p1', text: 'Which aspect of the assessment do you feel you did best at? Please briefly explain why?', maxWords: 150 },
+                        { id: 'p2', text: 'Which aspect of the assessment do you feel was more challenging? Please briefly explain why?', maxWords: 150 },
+                        { id: 'p3', text: 'You will be given on-script written notes and audio feedback on your assessment relating to the marking criteria. Please use this form to let the marker know if there is a specific aspect of the assessment you would like more in-depth comments on. For example, would you like more detailed feedback on the structure of your work?', maxWords: 150 }
+                    ]
+                }
+            },
+
+            'ai-disclosure': {
+                label: 'AI Use Disclosure',
+                description: 'Configurable AI declaration — prohibited, permitted with structured disclosure, or optional disclosure.',
+                colorBg:   'bg-rose-100',
+                colorText: 'text-rose-700',
+                hoverCls:  'hover:bg-rose-50 hover:border-rose-300',
+                icon: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>`,
+                defaultConfig: {
+                    title: 'Use of AI',
+                    subtitle: '',
+                    mode: 'prohibited',
+                    disclosurePrompt: 'Describe which tool(s) you used, what task(s) you applied them to, and what you changed or added to the output.',
+                    required: true
+                }
+            },
+
+            'info-divider': {
+                label: 'Info / Divider',
+                description: 'Staff-written heading and guidance text shown in an information box. No student input — does not affect progress or validation.',
+                colorBg:   'bg-slate-100',
+                colorText: 'text-slate-500',
+                hoverCls:  'hover:bg-slate-50 hover:border-slate-300',
+                fieldLabels: { title: 'Heading', subtitle: 'Guidance text' },
+                icon: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+                defaultConfig: {
+                    title: '',
+                    subtitle: ''
+                }
+            }
+        };
+
+        // ─── State ─────────────────────────────────────────────────────────────
+        let blocks = [];
+        let nextId = 1;
+
+        // ─── Palette ───────────────────────────────────────────────────────────
+        function renderPalette() {
+            document.getElementById('palette').innerHTML = Object.entries(BLOCK_DEFS).filter(([type]) => type !== 'student-identity').map(([type, def]) => `
+                <button type="button" onclick="addBlock('${type}')"
+                    class="palette-card w-full text-left p-3.5 border border-slate-200 rounded-xl ${def.hoverCls} bg-white mb-2.5 group">
+                    <div class="flex items-start gap-3">
+                        <div class="flex-shrink-0 w-8 h-8 rounded-lg ${def.colorBg} ${def.colorText} flex items-center justify-center">
+                            ${def.icon}
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="font-bold text-sm text-slate-800 leading-tight">${def.label}</div>
+                            <div class="text-xs text-slate-500 mt-0.5 leading-snug">${def.description}</div>
+                        </div>
+                    </div>
+                    <div class="mt-2 text-xs font-bold ${def.colorText} flex items-center gap-1 opacity-70 group-hover:opacity-100">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Add to canvas
+                    </div>
+                </button>
+            `).join('');
+        }
+
+        // ─── Canvas ────────────────────────────────────────────────────────────
+
+        // Read editable fields from DOM back into state before any re-render
+        function syncFromDom() {
+            blocks.forEach(block => {
+                const el = document.querySelector(`[data-block-id="${block.id}"]`);
+                if (!el) return;
+                const get  = cls => el.querySelector(cls);
+                const val  = cls => { const e = get(cls); return e ? e.value : undefined; };
+                const chk  = cls => { const e = get(cls); return e ? e.checked : undefined; };
+                const num  = cls => { const e = get(cls); return e ? (parseInt(e.value) || 0) : undefined; };
+
+                const t = get('.js-title');
+                if (t) block.config.title = t.value.trim();
+                const sub = get('.js-subtitle');
+                if (sub) block.config.subtitle = sub.value.trim();
+
+                if (block.type === 'text-upload') {
+                    block.config.required      = chk('.js-required')    ?? block.config.required;
+                    block.config.uploadEnabled = chk('.js-upload')      ?? block.config.uploadEnabled;
+                    block.config.uploadOnly    = chk('.js-upload-only') ?? block.config.uploadOnly;
+                    block.config.wcEnabled     = chk('.js-wc-enabled')  ?? block.config.wcEnabled;
+                    block.config.wcMin         = num('.js-wc-min')   ?? block.config.wcMin;
+                    block.config.wcMax         = num('.js-wc-max')   ?? block.config.wcMax;
+                    block.config.helperLabel   = val('.js-helper-label') ?? block.config.helperLabel;
+                    block.config.helperUrl     = val('.js-helper-url')   ?? block.config.helperUrl;
+                }
+                if (block.type === 'contacts') {
+                    block.config.required = chk('.js-required') ?? block.config.required;
+                }
+                if (block.type === 'url-field') {
+                    block.config.label      = val('.js-label')       ?? block.config.label;
+                    block.config.helperText = val('.js-helper-text') ?? block.config.helperText;
+                    block.config.required   = chk('.js-required')    ?? block.config.required;
+                }
+                if (block.type === 'simple-text') {
+                    block.config.label       = val('.js-label')       ?? block.config.label;
+                    block.config.placeholder = val('.js-placeholder') ?? block.config.placeholder;
+                    block.config.required    = chk('.js-required')    ?? block.config.required;
+                }
+                if (block.type === 'group-identity') {
+                    block.config.required         = chk('.js-required')           ?? block.config.required;
+                    block.config.showGroupNumber  = chk('.js-show-group-num')     ?? block.config.showGroupNumber;
+                    block.config.groupNumberLabel = val('.js-group-num-label')    ?? block.config.groupNumberLabel;
+                    block.config.showTeamMembers  = chk('.js-show-team-members')  ?? block.config.showTeamMembers;
+                    block.config.teamMembersLabel = val('.js-team-members-label') ?? block.config.teamMembersLabel;
+                }
+                if (block.type === 'grouped-checklist') {
+                    block.config.required    = chk('.js-required')     ?? block.config.required;
+                    block.config.notAssessed = chk('.js-not-assessed') ?? block.config.notAssessed;
+                    block.config.groups = (block.config.groups || []).map(g => {
+                        const gEl = el.querySelector(`[data-group-id="${g.id}"]`);
+                        return {
+                            id: g.id,
+                            label: gEl?.querySelector('.js-group-label')?.value ?? g.label,
+                            items: (g.items || []).map(item => ({
+                                id: item.id,
+                                text: gEl?.querySelector(`[data-item-id="${item.id}"]`)?.value ?? item.text
+                            }))
+                        };
+                    });
+                }
+                if (block.type === 'feedback-targeting') {
+                    block.config.required    = chk('.js-required')     ?? block.config.required;
+                    block.config.notAssessed = chk('.js-not-assessed') ?? block.config.notAssessed;
+                    block.config.prompts = (block.config.prompts || []).map(p => {
+                        const pEl = el.querySelector(`[data-prompt-id="${p.id}"]`);
+                        return {
+                            id: p.id,
+                            text:     pEl?.querySelector('.js-prompt-text')?.value     ?? p.text,
+                            maxWords: parseInt(pEl?.querySelector('.js-prompt-maxwords')?.value) || p.maxWords
+                        };
+                    });
+                }
+                if (block.type === 'ai-disclosure') {
+                    const modeEl = el.querySelector('.js-ai-mode:checked');
+                    if (modeEl) block.config.mode = modeEl.value;
+                    block.config.disclosurePrompt = val('.js-disclosure-prompt') ?? block.config.disclosurePrompt;
+                    block.config.required         = chk('.js-required')          ?? block.config.required;
+                }
+            });
+        }
+
+        function renderCanvas() {
+            const container = document.getElementById('canvas-blocks');
+            const empty     = document.getElementById('canvas-empty');
+
+            if (blocks.length === 0) {
+                container.innerHTML = '';
+                empty.classList.remove('hidden');
+                return;
+            }
+            empty.classList.add('hidden');
+            container.innerHTML = blocks.map((block, i) => renderBlockCard(block, i)).join('');
+        }
+
+        function renderBlockCard(block, index) {
+            const def        = BLOCK_DEFS[block.type];
+            const title      = bb(block.config.title || def.label);
+            const titleLabel = def.fieldLabels?.title    || 'Section Title';
+            const subLabel   = def.fieldLabels?.subtitle || 'Instructions';
+
+            return `
+            <div data-block-id="${block.id}" class="canvas-block bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"
+                 draggable="true"
+                 ondragstart="onBlockDragStart(event,${block.id})"
+                 ondragend="onBlockDragEnd(event)"
+                 ondragover="onBlockDragOver(event,${block.id})"
+                 ondragleave="onBlockDragLeave(event)"
+                 ondrop="onBlockDrop(event,${block.id})">
+
+                <!-- Card header: type label + controls -->
+                <div class="flex items-center gap-2.5 px-4 py-2.5 border-b border-slate-100 bg-slate-50">
+                    <div class="drag-handle flex-shrink-0" title="Drag to reorder">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>
+                    </div>
+                    <div class="flex-shrink-0 w-6 h-6 rounded-md ${def.colorBg} ${def.colorText} flex items-center justify-center">
+                        ${def.icon}
+                    </div>
+                    <span class="text-xs font-bold uppercase tracking-wide ${def.colorText} flex-1">${def.label}</span>
+
+                    <span class="text-xs text-slate-400 font-mono">#${index + 1}</span>
+                    <div class="w-px h-4 bg-slate-200"></div>
+
+                    <button type="button" onclick="removeBlock(${block.id})" title="Remove block"
+                        class="p-1 rounded text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+
+                <!-- Card body: config -->
+                <div class="p-4 space-y-3">
+                    <div>
+                        <label class="bb-label">${titleLabel}</label>
+                        <input type="text" class="js-title bb-input" value="${title}" placeholder="Section heading shown to students...">
+                    </div>
+                    <div>
+                        <label class="bb-label">${subLabel} <span class="text-slate-400 font-normal normal-case">(optional)</span></label>
+                        <textarea class="js-subtitle bb-input resize-none" rows="2" placeholder="Additional guidance shown below the section heading...">${bb(block.config.subtitle || '')}</textarea>
+                    </div>
+                    ${renderBlockConfig(block)}
+                </div>
+            </div>`;
+        }
+
+        // ─── Block Config Panels ───────────────────────────────────────────────
+        function renderBlockConfig(block) {
+            const c = block.config;
+            const chkLabel = (cls, checked, title, sub, onchange = '') => `
+                <label class="flex items-center gap-2.5 cursor-pointer p-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors">
+                    <input type="checkbox" class="${cls} w-4 h-4 accent-indigo-600 flex-shrink-0" ${checked ? 'checked' : ''} ${onchange ? `onchange="${onchange}"` : ''}>
+                    <div><div class="text-xs font-bold text-slate-700">${title}</div>${sub ? `<div class="text-xs text-slate-400">${sub}</div>` : ''}</div>
+                </label>`;
+
+            switch (block.type) {
+
+                case 'student-identity':
+                    return `<p class="text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2 border border-slate-200">
+                        Always outputs a <strong>Full Name</strong> field and a <strong>Student ID</strong> field. Both are required. No further config needed.
+                    </p>`;
+
+                case 'text-upload':
+                    return `
+                    <div class="grid grid-cols-2 gap-2">
+                        ${chkLabel('js-required',    c.required,      'Required',       'Blocks download if empty')}
+                        ${chkLabel('js-upload',      c.uploadEnabled, 'Enable Upload',  'Adds a .docx drop zone',
+                            "if(!this.checked)this.closest('[data-block-id]').querySelector('.js-upload-only').checked=false")}
+                        ${chkLabel('js-upload-only', c.uploadOnly,    'Upload only',    'Hides the text editor',
+                            "if(this.checked)this.closest('[data-block-id]').querySelector('.js-upload').checked=true")}
+                    </div>
+                    <label class="flex items-center gap-2 cursor-pointer ${c.uploadOnly ? 'opacity-40 pointer-events-none' : ''}">
+                        <input type="checkbox" class="js-wc-enabled w-4 h-4 accent-indigo-600"
+                            ${c.wcEnabled ? 'checked' : ''}
+                            onchange="this.closest('[data-block-id]').querySelector('.js-wc-range').classList.toggle('hidden', !this.checked)">
+                        <span class="text-xs font-bold text-slate-700">Enable word count target</span>
+                    </label>
+                    <div class="js-wc-range grid grid-cols-2 gap-3 ${c.wcEnabled ? '' : 'hidden'}">
+                        <div>
+                            <label class="bb-label">Min words</label>
+                            <input type="number" class="js-wc-min bb-input" value="${c.wcMin}" min="0" step="50">
+                        </div>
+                        <div>
+                            <label class="bb-label">Max words</label>
+                            <input type="number" class="js-wc-max bb-input" value="${c.wcMax}" min="0" step="50">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="bb-label">Helper link label</label>
+                            <input type="text" class="js-helper-label bb-input" value="${bb(c.helperLabel)}" placeholder="e.g. Open VISUALSCRIPT">
+                        </div>
+                        <div>
+                            <label class="bb-label">Helper link URL</label>
+                            <input type="url" class="js-helper-url bb-input" value="${bb(c.helperUrl)}" placeholder="https://...">
+                        </div>
+                    </div>`;
+
+                case 'contacts':
+                    return `
+                    ${chkLabel('js-required', c.required, 'Required', 'At least one contact with a name must be filled')}`;
+
+                case 'url-field':
+                    return `
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="bb-label">Field Label</label>
+                            <input type="text" class="js-label bb-input" value="${bb(c.label)}" placeholder="e.g. Video Link URL">
+                        </div>
+                        <div>
+                            <label class="bb-label">Helper Text</label>
+                            <input type="text" class="js-helper-text bb-input" value="${bb(c.helperText)}" placeholder="Optional hint shown below the field">
+                        </div>
+                    </div>
+                    ${chkLabel('js-required', c.required, 'Required', 'Included in progress tracking and validation')}`;
+
+                case 'simple-text':
+                    return `
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="bb-label">Field Label</label>
+                            <input type="text" class="js-label bb-input" value="${bb(c.label)}" placeholder="e.g. Video Headline">
+                        </div>
+                        <div>
+                            <label class="bb-label">Placeholder Text</label>
+                            <input type="text" class="js-placeholder bb-input" value="${bb(c.placeholder)}" placeholder="e.g. Campus Protests…">
+                        </div>
+                    </div>
+                    ${chkLabel('js-required', c.required, 'Required', 'Included in progress tracking and validation')}`;
+
+                case 'group-identity':
+                    return `
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-2">
+                            <label class="flex items-center gap-2 cursor-pointer flex-shrink-0 min-w-[130px]">
+                                <input type="checkbox" class="js-show-group-num w-4 h-4 accent-indigo-600" ${c.showGroupNumber ? 'checked' : ''}>
+                                <span class="text-xs font-bold text-slate-700">Group Number</span>
+                            </label>
+                            <input type="text" class="js-group-num-label bb-input flex-1" value="${bb(c.groupNumberLabel)}" placeholder="Label shown to students">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="flex items-center gap-2 cursor-pointer flex-shrink-0 min-w-[130px]">
+                                <input type="checkbox" class="js-show-team-members w-4 h-4 accent-indigo-600" ${c.showTeamMembers ? 'checked' : ''}>
+                                <span class="text-xs font-bold text-slate-700">Team Members</span>
+                            </label>
+                            <input type="text" class="js-team-members-label bb-input flex-1" value="${bb(c.teamMembersLabel)}" placeholder="Label shown to students">
+                        </div>
+                        ${chkLabel('js-required', c.required, 'Required', 'All visible fields must be filled')}
+                    </div>`;
+
+                case 'grouped-checklist': {
+                    const xSvg   = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+                    const plusSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+                    return `
+                    <div class="grid grid-cols-2 gap-2">
+                        ${chkLabel('js-required',     c.required,     'Required',     'All items must be ticked')}
+                        ${chkLabel('js-not-assessed', c.notAssessed,  'Not assessed', 'Shows a notice in the form')}
+                    </div>
+                    <div class="space-y-2">
+                        <label class="bb-label">Groups &amp; Items</label>
+                        ${(c.groups || []).map(g => `
+                        <div data-group-id="${g.id}" class="border border-slate-200 rounded-lg p-3 bg-slate-50 space-y-2">
+                            <div class="flex items-center gap-2">
+                                <input type="text" class="js-group-label bb-input flex-1" value="${bb(g.label)}" placeholder="Group label...">
+                                <button type="button" onclick="removeChecklistGroup(${block.id},'${g.id}')"
+                                    title="Remove group" class="flex-shrink-0 text-slate-300 hover:text-red-500 transition-colors p-1 rounded">${xSvg}</button>
+                            </div>
+                            <div class="space-y-1.5 pl-1">
+                                ${(g.items || []).map(item => `
+                                <div class="flex items-center gap-2">
+                                    <input type="text" class="js-item-text bb-input flex-1" data-item-id="${item.id}"
+                                        value="${bb(item.text)}" placeholder="Item text...">
+                                    <button type="button" onclick="removeChecklistItem(${block.id},'${g.id}','${item.id}')"
+                                        title="Remove item" class="flex-shrink-0 text-slate-300 hover:text-red-500 transition-colors p-1 rounded">${xSvg}</button>
+                                </div>`).join('')}
+                                <button type="button" onclick="addChecklistItem(${block.id},'${g.id}')"
+                                    class="mt-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-colors">
+                                    ${plusSvg} Add item
+                                </button>
+                            </div>
+                        </div>`).join('')}
+                        <button type="button" onclick="addChecklistGroup(${block.id})"
+                            class="w-full text-xs font-bold text-slate-500 hover:text-indigo-600 border border-dashed border-slate-300 hover:border-indigo-300 rounded-lg py-2 flex items-center justify-center gap-1 hover:bg-indigo-50 transition-colors">
+                            ${plusSvg} Add group
+                        </button>
+                    </div>`;
+                }
+
+                case 'feedback-targeting': {
+                    const xSvg   = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+                    const plusSvg2 = `<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+                    return `
+                    <div class="grid grid-cols-2 gap-2">
+                        ${chkLabel('js-required',     c.required,     'Required',     'All prompts must have a response')}
+                        ${chkLabel('js-not-assessed', c.notAssessed,  'Not assessed', 'Shows a notice in the form')}
+                    </div>
+                    <div class="space-y-2">
+                        <label class="bb-label">Prompts</label>
+                        ${(c.prompts || []).map(p => `
+                        <div data-prompt-id="${p.id}" class="border border-slate-200 rounded-lg p-3 bg-slate-50 space-y-2">
+                            <div class="flex items-center gap-2">
+                                <input type="text" class="js-prompt-text bb-input flex-1" value="${bb(p.text)}" placeholder="Prompt text...">
+                                <button type="button" onclick="removeFeedbackPrompt(${block.id},'${p.id}')"
+                                    title="Remove prompt" class="flex-shrink-0 text-slate-300 hover:text-red-500 transition-colors p-1 rounded">${xSvg}</button>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <label class="text-xs text-slate-500 flex-shrink-0 whitespace-nowrap">Max words</label>
+                                <input type="number" class="js-prompt-maxwords bb-input w-24" value="${p.maxWords}" min="10" max="2000">
+                            </div>
+                        </div>`).join('')}
+                        <button type="button" onclick="addFeedbackPrompt(${block.id})"
+                            class="w-full text-xs font-bold text-slate-500 hover:text-indigo-600 border border-dashed border-slate-300 hover:border-indigo-300 rounded-lg py-2 flex items-center justify-center gap-1 hover:bg-indigo-50 transition-colors">
+                            ${plusSvg2} Add prompt
+                        </button>
+                    </div>`;
+                }
+
+                case 'ai-disclosure': {
+                    const modeRadio = (value, label) => `
+                        <label class="flex items-center gap-2 cursor-pointer p-2.5 rounded-lg border ${c.mode === value ? 'border-rose-300 bg-rose-50' : 'border-slate-200 bg-slate-50'} hover:bg-rose-50 hover:border-rose-200 transition-colors">
+                            <input type="radio" name="ai-mode-${block.id}" class="js-ai-mode w-4 h-4 accent-rose-600 flex-shrink-0" value="${value}" ${c.mode === value ? 'checked' : ''}
+                                onchange="this.closest('[data-block-id]').querySelectorAll('.js-disclosure-fields').forEach(function(el){el.classList.toggle('hidden',['required','optional'].indexOf(this.value)===-1);}.bind(this));">
+                            <span class="text-xs font-semibold text-slate-700">${label}</span>
+                        </label>`;
+                    const showDisclosure = c.mode === 'required' || c.mode === 'optional';
+                    return `
+                    <div class="space-y-1.5">
+                        <label class="bb-label">Mode</label>
+                        ${modeRadio('prohibited', 'AI not permitted (declaration only)')}
+                        ${modeRadio('required',   'AI use permitted — disclosure required')}
+                        ${modeRadio('optional',   'AI use permitted — disclosure optional')}
+                    </div>
+                    <div class="js-disclosure-fields space-y-3 ${showDisclosure ? '' : 'hidden'}">
+                        <div>
+                            <label class="bb-label">Disclosure prompt text</label>
+                            <textarea class="js-disclosure-prompt bb-input resize-none" rows="3">${bb(c.disclosurePrompt)}</textarea>
+                        </div>
+                        ${chkLabel('js-required', c.required, 'Required before submission', 'Blocks download if not completed')}
+                    </div>`;
+                }
+
+                case 'info-divider':
+                    return `<p class="text-xs text-slate-400 bg-slate-50 rounded-lg px-3 py-2 border border-slate-200 italic">Not assessed — shown as an information box. Passes the heading and text through to the final document.</p>`;
+
+                default:
+                    return '';
+            }
+        }
+
+        // ─── Actions ───────────────────────────────────────────────────────────
+        // ─── Builder State Persistence ─────────────────────────────────────────
+        const BB_LS_KEY = 'bb_builder_state';
+        let _saveTimer = null;
+
+        function saveBuilderState() {
+            try {
+                localStorage.setItem(BB_LS_KEY, JSON.stringify({
+                    blocks, nextId,
+                    cfg: {
+                        title:    document.getElementById('cfg-title').value,
+                        subtitle: document.getElementById('cfg-subtitle').value,
+                        welcome:  document.getElementById('cfg-welcome').value,
+                        moodle:   document.getElementById('cfg-moodle').value,
+                        label:    document.getElementById('cfg-label').value
+                    }
+                }));
+                const ind = document.getElementById('autoSaveIndicator');
+                if (ind) {
+                    ind.classList.remove('hidden');
+                    clearTimeout(_saveTimer);
+                    _saveTimer = setTimeout(() => ind.classList.add('hidden'), 1500);
+                }
+            } catch(e) {}
+        }
+
+        function loadBuilderState() {
+            try {
+                const raw = localStorage.getItem(BB_LS_KEY);
+                if (!raw) return false;
+                const state = JSON.parse(raw);
+                if (Array.isArray(state.blocks)) {
+                    blocks = state.blocks;
+                    nextId = state.nextId ?? (blocks.length ? Math.max(...blocks.map(b => b.id)) + 1 : 1);
+                }
+                if (state.cfg) {
+                    ['title','subtitle','welcome','moodle','label'].forEach(k => {
+                        const el = document.getElementById('cfg-' + k);
+                        if (el && state.cfg[k] !== undefined) el.value = state.cfg[k];
+                    });
+                }
+                return true;
+            } catch(e) { return false; }
+        }
+
+        function exportSchema() {
+            syncFromDom();
+            const cfg = {
+                title:    document.getElementById('cfg-title').value,
+                subtitle: document.getElementById('cfg-subtitle').value,
+                welcome:  document.getElementById('cfg-welcome').value,
+                moodle:   document.getElementById('cfg-moodle').value,
+                label:    document.getElementById('cfg-label').value
+            };
+            const blob = new Blob([JSON.stringify({ schemaVersion: 1, blocks, nextId, cfg }, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = (cfg.label || cfg.title || 'builder').replace(/[^a-z0-9_-]/gi, '_') + '_schema.json';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
+        function importSchema(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                try {
+                    const state = JSON.parse(e.target.result);
+                    if (!Array.isArray(state.blocks)) throw new Error('No blocks array found');
+                    blocks = state.blocks;
+                    nextId = state.nextId ?? (blocks.length ? Math.max(...blocks.map(b => b.id)) + 1 : 1);
+                    if (state.cfg) {
+                        ['title','subtitle','welcome','moodle','label'].forEach(k => {
+                            const el = document.getElementById('cfg-' + k);
+                            if (el && state.cfg[k] !== undefined) el.value = state.cfg[k];
+                        });
+                    }
+                    renderCanvas();
+                    saveBuilderState();
+                } catch(err) { alert('Could not load schema: ' + err.message); }
+                event.target.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        function resetBuilder() {
+            if (!confirm('Clear the canvas and start a new form? Any unsaved changes will be lost.')) return;
+            localStorage.removeItem(BB_LS_KEY);
+            blocks = [];
+            nextId = 1;
+            ['title','subtitle','welcome','moodle','label'].forEach(k => {
+                const el = document.getElementById('cfg-' + k);
+                if (el) el.value = '';
+            });
+            blocks.push({ id: nextId++, type: 'student-identity', config: structuredClone(BLOCK_DEFS['student-identity'].defaultConfig) });
+            renderCanvas();
+        }
+
+        function addBlock(type) {
+            syncFromDom();
+            const def = BLOCK_DEFS[type];
+            blocks.push({ id: nextId++, type, config: structuredClone(def.defaultConfig) });
+            renderCanvas();
+            saveBuilderState();
+        }
+
+        function removeBlock(id) {
+            syncFromDom();
+            blocks = blocks.filter(b => b.id !== id);
+            renderCanvas();
+            saveBuilderState();
+        }
+
+        function moveBlock(id, dir) {
+            syncFromDom();
+            const i = blocks.findIndex(b => b.id === id);
+            if (i < 0) return;
+            const j = i + dir;
+            if (j < 0 || j >= blocks.length) return;
+            [blocks[i], blocks[j]] = [blocks[j], blocks[i]];
+            renderCanvas();
+            saveBuilderState();
+        }
+
+        // ─── Grouped Checklist builder helpers ────────────────────────────────
+        let _bbItemCtr = 100;
+        function newItemId() { return 'i' + (++_bbItemCtr); }
+        function newGroupId() { return 'g' + (++_bbItemCtr); }
+
+        function addChecklistGroup(blockId) {
+            syncFromDom();
+            const block = blocks.find(b => b.id === blockId);
+            if (!block) return;
+            block.config.groups.push({ id: newGroupId(), label: 'Group', items: [{ id: newItemId(), text: '' }] });
+            renderCanvas();
+            saveBuilderState();
+        }
+        function removeChecklistGroup(blockId, groupId) {
+            syncFromDom();
+            const block = blocks.find(b => b.id === blockId);
+            if (!block || block.config.groups.length <= 1) return;
+            block.config.groups = block.config.groups.filter(g => g.id !== groupId);
+            renderCanvas();
+            saveBuilderState();
+        }
+        function addChecklistItem(blockId, groupId) {
+            syncFromDom();
+            const block = blocks.find(b => b.id === blockId);
+            if (!block) return;
+            const group = block.config.groups.find(g => g.id === groupId);
+            if (!group) return;
+            group.items.push({ id: newItemId(), text: '' });
+            renderCanvas();
+            saveBuilderState();
+        }
+        function removeChecklistItem(blockId, groupId, itemId) {
+            syncFromDom();
+            const block = blocks.find(b => b.id === blockId);
+            if (!block) return;
+            const group = block.config.groups.find(g => g.id === groupId);
+            if (!group || group.items.length <= 1) return;
+            group.items = group.items.filter(i => i.id !== itemId);
+            renderCanvas();
+            saveBuilderState();
+        }
+
+        // ─── Targeted Questions builder helpers ────────────────────────────────
+        function addFeedbackPrompt(blockId) {
+            syncFromDom();
+            const block = blocks.find(b => b.id === blockId);
+            if (!block) return;
+            block.config.prompts.push({ id: newItemId(), text: '', maxWords: 150 });
+            renderCanvas();
+            saveBuilderState();
+        }
+        function removeFeedbackPrompt(blockId, promptId) {
+            syncFromDom();
+            const block = blocks.find(b => b.id === blockId);
+            if (!block || block.config.prompts.length <= 1) return;
+            block.config.prompts = block.config.prompts.filter(p => p.id !== promptId);
+            renderCanvas();
+            saveBuilderState();
+        }
+
+        // ─── Drag to Reorder ──────────────────────────────────────────────────
+        let _dragId = null;
+
+        function onBlockDragStart(e, id) {
+            _dragId = id;
+            e.dataTransfer.effectAllowed = 'move';
+            setTimeout(() => { const el = document.querySelector(`[data-block-id="${id}"]`); if (el) el.style.opacity = '0.4'; }, 0);
+        }
+        function onBlockDragEnd(e) {
+            const el = document.querySelector(`[data-block-id="${_dragId}"]`);
+            if (el) el.style.opacity = '';
+            document.querySelectorAll('.canvas-block').forEach(b => b.classList.remove('drag-over'));
+            _dragId = null;
+        }
+        function onBlockDragOver(e, id) {
+            if (_dragId === null || _dragId === id) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            document.querySelectorAll('.canvas-block').forEach(b => b.classList.remove('drag-over'));
+            e.currentTarget.classList.add('drag-over');
+        }
+        function onBlockDragLeave(e) {
+            if (!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.classList.remove('drag-over');
+        }
+        function onBlockDrop(e, id) {
+            if (_dragId === null || _dragId === id) return;
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+            syncFromDom();
+            const fromIdx = blocks.findIndex(b => b.id === _dragId);
+            const toIdx   = blocks.findIndex(b => b.id === id);
+            if (fromIdx < 0 || toIdx < 0) return;
+            const [moved] = blocks.splice(fromIdx, 1);
+            blocks.splice(blocks.findIndex(b => b.id === id), 0, moved);
+            renderCanvas();
+            saveBuilderState();
+        }
+
+        // ─── Form HTML Generation ─────────────────────────────────────────────
+        const SCARD = 'section-card bg-slate-50 p-6 rounded-xl border border-slate-200';
+
+        function genIcon(path) {
+            return `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600">${path}</svg>`;
+        }
+        function genSectionHeader(iconPath, title) {
+            return `<h2 class="section-header">${genIcon(iconPath)}${bb(title)}</h2>`;
+        }
+        const GEN_TOOLBAR = [
+            '<div class="editor-toolbar">',
+            '<button type="button" class="editor-btn font-bold" title="Bold" onmousedown="event.preventDefault()" onclick="formatDoc(\'bold\')">B</button>',
+            '<button type="button" class="editor-btn italic" title="Italic" onmousedown="event.preventDefault()" onclick="formatDoc(\'italic\')"><em>I</em></button>',
+            '<button type="button" class="editor-btn font-bold text-xs" title="Subheading" onmousedown="event.preventDefault()" onclick="formatDoc(\'h3\')">H</button>',
+            '<button type="button" class="editor-btn" title="Insert hyperlink" onmousedown="event.preventDefault()" onclick="formatDoc(\'link\')"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> Link</button>',
+            '</div>'
+        ].join('');
+
+        function blockIsRequired(block) {
+            if (block.type === 'student-identity') return true;
+            return !!block.config.required;
+        }
+
+        function genNotAssessedBanner() {
+            return `
+        <div class="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4 flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0 text-amber-600"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span class="text-xs text-amber-700">This section is not assessed and does not form part of any word count.</span>
+        </div>`;
+        }
+
+        const BLOCK_HTML = {
+
+            'student-identity'(config, key, sIdx) {
+                const sid = sIdx !== null ? ` id="section-${sIdx}"` : '';
+                const subtitleHtml = config.subtitle ? `<p class="text-sm text-slate-500 mb-4 leading-relaxed">${bb(config.subtitle)}</p>` : '';
+                return `
+        <div${sid} class="${SCARD}">
+            ${genSectionHeader('<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>', config.title)}
+            ${subtitleHtml}<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Full Name *</label>
+                    <input type="text" id="studentName" class="input-std" placeholder="Your full name" oninput="saveState(); updateProgress();">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Student ID *</label>
+                    <input type="text" id="studentId" class="input-std" placeholder="e.g. 12345678" oninput="saveState(); updateProgress();">
+                </div>
+            </div>
+        </div>`;
+            },
+
+            'text-upload'(config, key, sIdx) {
+                const sid  = sIdx !== null ? ` id="section-${sIdx}"` : '';
+                const edId = `editor_${key}`;
+                const subtitleHtml = config.subtitle ? `<p class="text-sm text-slate-500 mb-4 leading-relaxed">${bb(config.subtitle)}</p>` : '';
+
+                const helperHtml = (config.helperLabel && config.helperUrl) ? `
+        <div class="mb-4">
+            <a href="${bb(config.helperUrl)}" target="_blank" rel="noopener" class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 0 2 2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                ${bb(config.helperLabel)}
+            </a>
+        </div>` : '';
+
+                let uploadHtml = '';
+                if (config.uploadEnabled || config.uploadOnly) {
+                    const zId  = `uploadZone_${key}`, inId  = `uploadInput_${key}`;
+                    const erId = `uploadErr_${key}`,  lstId = `uploadList_${key}`;
+                    uploadHtml = `
+        <div id="${zId}" class="drop-zone mb-3" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event,'${zId}')" ondrop="handleUploadDrop_${key}(event)" onclick="document.getElementById('${inId}').click()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-2 text-slate-400"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <p class="text-sm font-semibold text-slate-500">Drop files here, or click to browse</p>
+            <p class="text-xs text-slate-400 mt-1">Accepts .doc or .docx &mdash; max 10 MB each &mdash; multiple files allowed</p>
+            <input type="file" id="${inId}" class="hidden" accept=".doc,.docx" aria-label="Upload document" multiple onchange="handleUploadFileSelect_${key}(event)">
+        </div>
+        <div id="${erId}" class="hidden mb-2 text-sm text-red-600 font-semibold"></div>
+        <div id="${lstId}" class="space-y-2 mb-3"></div>`;
+                }
+
+                let editorHtml = '';
+                if (!config.uploadOnly) {
+                    const wcHtml = config.wcEnabled ? (() => {
+                        const pct = (config.wcMin / config.wcMax * 100).toFixed(1);
+                        return `
+        <div class="mt-3">
+            <div class="wc-bar-track">
+                <div id="wcBar_${key}" class="wc-bar-fill"></div>
+                <div class="wc-bar-marker" data-label="${config.wcMin}" data-left-pct="${pct}"></div>
+            </div>
+            <div id="wcDisplay_${key}" class="mt-3 text-sm font-bold text-slate-400">0 words &mdash; target: ${config.wcMin}&ndash;${config.wcMax}</div>
+        </div>`;
+                    })() : '';
+                    const onInput = config.wcEnabled
+                        ? `oninput="updateWordCount_${key}()"`
+                        : `oninput="saveState(); updateProgress(); checkImgWarn_${key}();"`;
+                    editorHtml = `${GEN_TOOLBAR}
+            <div id="${edId}" contenteditable="true" class="editor-content editor-content--tall"
+                data-placeholder="Type or paste your content here..." ${onInput}></div>
+            ${wcHtml}`;
+                }
+
+                return `
+        <div${sid} class="${SCARD}">
+            ${genSectionHeader('<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>', config.title)}
+            ${subtitleHtml}${helperHtml}${uploadHtml}${editorHtml}
+        <div id="imgWarn_${key}" class="hidden mt-3 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0 text-amber-500 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <p class="text-xs text-amber-700 leading-snug"><strong>Images detected</strong> &mdash; your content includes one or more images. These will appear in the document preview and download. Check the downloaded .docx looks correct before submitting.</p>
+        </div>
+        </div>`;
+            },
+
+            'contacts'(config, key, sIdx) {
+                const sid = sIdx !== null ? ` id="section-${sIdx}"` : '';
+                const subtitleHtml = config.subtitle ? `<p class="text-sm text-slate-500 mb-4 leading-relaxed">${bb(config.subtitle)}</p>` : '';
+                return `
+        <div${sid} class="${SCARD}">
+            ${genSectionHeader('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>', config.title)}
+            ${subtitleHtml}<p class="text-xs text-slate-500 mb-4">Add a row for each person interviewed or contacted.</p>
+            <div id="contactRows_${key}" class="space-y-4"></div>
+            <button type="button" onclick="addContactRow_${key}()"
+                class="mt-4 text-sm font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 border border-indigo-200 px-3 py-2 rounded-lg hover:bg-indigo-50 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add Interviewee
+            </button>
+        </div>`;
+            },
+
+            'url-field'(config, key, sIdx) {
+                const sid     = sIdx !== null ? ` id="section-${sIdx}"` : '';
+                const fieldId = `urlField_${key}`;
+                const onInput = config.required
+                    ? 'oninput="saveState(); updateProgress();"'
+                    : 'oninput="saveState();"';
+                const headerHtml = config.title
+                    ? genSectionHeader('<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>', config.title)
+                    : '';
+                const subtitleHtml = config.subtitle ? `<p class="text-sm text-slate-500 mb-4 leading-relaxed">${bb(config.subtitle)}</p>` : '';
+                const helperHtml = config.helperText
+                    ? `<p class="text-xs text-slate-500 mb-2">${bb(config.helperText)}</p>` : '';
+                return `
+        <div${sid} class="${SCARD}">
+            ${headerHtml}${subtitleHtml}
+            <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">${bb(config.label)}${config.required ? ' *' : ''}</label>
+                ${helperHtml}<input type="url" id="${fieldId}" class="input-std" placeholder="https://..." ${onInput}>
+            </div>
+        </div>`;
+            },
+
+            'simple-text'(config, key, sIdx) {
+                const sid     = sIdx !== null ? ` id="section-${sIdx}"` : '';
+                const fieldId = `textField_${key}`;
+                const onInput = config.required
+                    ? 'oninput="saveState(); updateProgress();"'
+                    : 'oninput="saveState();"';
+                const headerHtml = config.title
+                    ? genSectionHeader('<line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="13" y1="18" x2="3" y2="18"/>', config.title)
+                    : '';
+                const subtitleHtml = config.subtitle ? `<p class="text-sm text-slate-500 mb-4 leading-relaxed">${bb(config.subtitle)}</p>` : '';
+                return `
+        <div${sid} class="${SCARD}">
+            ${headerHtml}${subtitleHtml}
+            <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">${bb(config.label)}${config.required ? ' *' : ''}</label>
+                <input type="text" id="${fieldId}" class="input-std" placeholder="${bb(config.placeholder)}" ${onInput}>
+            </div>
+        </div>`;
+            },
+
+            'group-identity'(config, key, sIdx) {
+                const sid       = sIdx !== null ? ` id="section-${sIdx}"` : '';
+                const subtitleHtml = config.subtitle ? `<p class="text-sm text-slate-500 mb-4 leading-relaxed">${bb(config.subtitle)}</p>` : '';
+                const onInput   = config.required ? 'oninput="saveState(); updateProgress();"' : 'oninput="saveState();"';
+                const req       = config.required ? ' *' : '';
+                let fields = '';
+                if (config.showGroupNumber) {
+                    fields += `
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-slate-500 mb-1">${bb(config.groupNumberLabel || 'Group Number')}${req}</label>
+                <input type="text" id="groupNum_${key}" class="input-std" placeholder="e.g. Group 4" ${onInput}>
+            </div>`;
+                }
+                if (config.showTeamMembers) {
+                    fields += `
+            <div>
+                <label class="block text-xs font-bold text-slate-500 mb-1">${bb(config.teamMembersLabel || 'Team Members')}${req}</label>
+                <textarea id="teamMembers_${key}" class="input-std resize-none" rows="3" placeholder="List your team members, one per line" ${onInput}></textarea>
+            </div>`;
+                }
+                return `
+        <div${sid} class="${SCARD}">
+            ${genSectionHeader('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>', config.title)}
+            ${subtitleHtml}${fields}
+        </div>`;
+            },
+
+            'grouped-checklist'(config, key, sIdx) {
+                const sid          = sIdx !== null ? ` id="section-${sIdx}"` : '';
+                const subtitleHtml = config.subtitle ? `<p class="text-sm text-slate-500 mb-4 leading-relaxed">${bb(config.subtitle)}</p>` : '';
+                const bannerHtml   = config.notAssessed ? genNotAssessedBanner() : '';
+                const groupsHtml   = (config.groups || []).map(g => {
+                    const itemsHtml = (g.items || []).map(item => {
+                        const chkId = `chk_${key}_${g.id}_${item.id}`;
+                        return `
+            <label class="flex items-start gap-3 p-3 rounded-lg border border-slate-200 bg-white cursor-pointer hover:bg-slate-50 transition-colors">
+                <input type="checkbox" id="${chkId}" class="w-4 h-4 accent-indigo-600 flex-shrink-0 mt-0.5" onchange="saveState(); updateProgress();">
+                <span class="text-sm text-slate-700 leading-snug">${bb(item.text) || '<em class="text-slate-400">No text set</em>'}</span>
+            </label>`;
+                    }).join('');
+                    return `
+            <div class="mb-5">
+                <p class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">${bb(g.label)}</p>
+                <div class="space-y-2">${itemsHtml}</div>
+            </div>`;
+                }).join('');
+                return `
+        <div${sid} class="${SCARD}">
+            ${genSectionHeader('<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>', config.title)}
+            ${subtitleHtml}${bannerHtml}${groupsHtml}
+        </div>`;
+            },
+
+            'feedback-targeting'(config, key, sIdx) {
+                const sid          = sIdx !== null ? ` id="section-${sIdx}"` : '';
+                const subtitleHtml = config.subtitle ? `<p class="text-sm text-slate-500 mb-4 leading-relaxed">${bb(config.subtitle)}</p>` : '';
+                const bannerHtml   = config.notAssessed ? genNotAssessedBanner() : '';
+                const promptsHtml  = (config.prompts || []).map(p => {
+                    const fId  = `fbText_${key}_${p.id}`;
+                    const wcId = `fbWc_${key}_${p.id}`;
+                    const onInput = `wcFb_${key}_${p.id}(); saveState(); updateProgress();`;
+                    return `
+            <div class="mb-5">
+                <label class="block text-sm font-semibold text-slate-700 mb-2">${bb(p.text) || '<em class="text-slate-400">No prompt text</em>'}</label>
+                <textarea id="${fId}" class="input-std resize-none" rows="3" placeholder="Write your response here..." oninput="${onInput}"></textarea>
+                <div class="flex justify-end mt-1">
+                    <span id="${wcId}" class="text-xs text-slate-400">0 / ${p.maxWords} words</span>
+                </div>
+            </div>`;
+                }).join('');
+                return `
+        <div${sid} class="${SCARD}">
+            ${genSectionHeader('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>', config.title)}
+            ${subtitleHtml}${bannerHtml}${promptsHtml}
+        </div>`;
+            },
+
+            'ai-disclosure'(config, key, sIdx) {
+                const sid          = sIdx !== null ? ` id="section-${sIdx}"` : '';
+                const subtitleHtml = config.subtitle ? `<p class="text-sm text-slate-500 mb-4 leading-relaxed">${bb(config.subtitle)}</p>` : '';
+                const mode         = config.mode || 'prohibited';
+                const iconPath     = '<circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>';
+                const chkId        = `aiChk_${key}`;
+                const txtId        = `aiText_${key}`;
+                const wcId         = `aiWc_${key}`;
+
+                if (mode === 'prohibited') {
+                    return `
+        <div${sid} class="${SCARD}">
+            ${genSectionHeader(iconPath, config.title)}
+            ${subtitleHtml}<label class="flex items-start gap-3 p-3 rounded-lg border border-slate-200 bg-white cursor-pointer hover:bg-slate-50 transition-colors">
+                <input type="checkbox" id="${chkId}" class="w-4 h-4 accent-indigo-600 flex-shrink-0 mt-0.5" onchange="saveState(); updateProgress();">
+                <span class="text-sm text-slate-700 leading-snug">I confirm I have not used any generative AI tools in producing this submission, unless their use has been expressly authorised as part of this assessment.</span>
+            </label>
+        </div>`;
+                }
+
+                if (mode === 'required') {
+                    const onInput = `wcAi_${key}(); saveState(); updateProgress();`;
+                    return `
+        <div${sid} class="${SCARD}">
+            ${genSectionHeader(iconPath, config.title)}
+            ${subtitleHtml}<label class="flex items-start gap-3 p-3 rounded-lg border border-slate-200 bg-white cursor-pointer hover:bg-slate-50 transition-colors mb-4">
+                <input type="checkbox" id="${chkId}" class="w-4 h-4 accent-indigo-600 flex-shrink-0 mt-0.5" onchange="saveState(); updateProgress();">
+                <span class="text-sm text-slate-700 leading-snug">Yes, I used AI in this submission</span>
+            </label>
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-2">${bb(config.disclosurePrompt)}</label>
+                <textarea id="${txtId}" class="input-std resize-none" rows="3" placeholder="Write your response here..." oninput="${onInput}"></textarea>
+                <div class="flex justify-end mt-1">
+                    <span id="${wcId}" class="text-xs text-slate-400">0 / 200 words</span>
+                </div>
+            </div>
+        </div>`;
+                }
+
+                // optional
+                const onInput      = `wcAi_${key}(); saveState(); updateProgress();`;
+                const toggleChange = `document.getElementById('${txtId}_wrap').classList.toggle('hidden',!this.checked); saveState(); updateProgress();`;
+                return `
+        <div${sid} class="${SCARD}">
+            ${genSectionHeader(iconPath, config.title)}
+            ${subtitleHtml}<label class="flex items-start gap-3 p-3 rounded-lg border border-slate-200 bg-white cursor-pointer hover:bg-slate-50 transition-colors mb-4">
+                <input type="checkbox" id="${chkId}" class="w-4 h-4 accent-indigo-600 flex-shrink-0 mt-0.5" onchange="${toggleChange}">
+                <span class="text-sm text-slate-700 leading-snug">I used AI tools in producing part of this submission (optional &#8212; tick if applicable)</span>
+            </label>
+            <div id="${txtId}_wrap" class="hidden">
+                <label class="block text-sm font-semibold text-slate-700 mb-2">${bb(config.disclosurePrompt)}</label>
+                <textarea id="${txtId}" class="input-std resize-none" rows="3" placeholder="Write your response here..." oninput="${onInput}"></textarea>
+                <div class="flex justify-end mt-1">
+                    <span id="${wcId}" class="text-xs text-slate-400">0 / 200 words</span>
+                </div>
+            </div>
+        </div>`;
+            },
+
+            'info-divider'(config, key, sIdx) {
+                const headingHtml = config.title    ? `<p class="text-sm font-bold text-amber-800 mb-1">${bb(config.title)}</p>`    : '';
+                const bodyHtml    = config.subtitle ? `<p class="text-sm text-amber-700 leading-relaxed">${bb(config.subtitle)}</p>` : '';
+                return `
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-5 flex items-start gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0 text-amber-500 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <div>${headingHtml}${bodyHtml}</div>
+        </div>`;
+            }
+        };
+
+        // ─── Export Assembly ───────────────────────────────────────────────────
+        function exportForm() {
+            syncFromDom();
+            const title    = document.getElementById('cfg-title').value.trim();
+            const subtitle = document.getElementById('cfg-subtitle').value.trim();
+            const welcome  = document.getElementById('cfg-welcome').value.trim();
+            const moodle   = document.getElementById('cfg-moodle').value.trim();
+            const cfgLabel = document.getElementById('cfg-label').value.trim() || title;
+
+            if (!title) { alert('Please enter a Tool Title before exporting.'); return; }
+            if (blocks.length === 0) { alert('Add at least one block before exporting.'); return; }
+
+            // --- Indices and counts ---
+            let sIdx = 0;
+            const sectionIndices = blocks.map(block => blockIsRequired(block) ? sIdx++ : null);
+            const requiredCount  = sIdx;
+
+            // --- Form HTML ---
+            const formHtml = blocks.map((block, i) => {
+                const gen = BLOCK_HTML[block.type];
+                return gen ? gen(block.config, `b${block.id}`, sectionIndices[i]) : '';
+            }).join('\n');
+
+            // --- JS fragments and assembled function contributions ---
+            const jsFragments   = blocks.map(b => BLOCK_JS[b.type]?.fragment(b.config, `b${b.id}`) || '').filter(Boolean).join('\n');
+            const saveEntries   = blocks.map(b => BLOCK_JS[b.type]?.saveEntry(b.config, `b${b.id}`)).filter(Boolean).join(',\n            ');
+            const restoreStmts  = blocks.flatMap(b => BLOCK_JS[b.type]?.restoreCode(b.config, `b${b.id}`) || []).join('\n            ');
+            const progressExprs = blocks.map(b => BLOCK_JS[b.type]?.progressCheck(b.config, `b${b.id}`)).filter(Boolean);
+            const validateStmts = blocks.flatMap(b => BLOCK_JS[b.type]?.validateCode(b.config, `b${b.id}`) || []).join('\n            ');
+            const metaStmts     = blocks.flatMap(b => BLOCK_JS[b.type]?.metaCode(b.config, `b${b.id}`) || []).join('\n            ');
+            const docCalls      = blocks.map(b => `sections.push(docSection_b${b.id}());`).join('\n            ');
+            const contactInits  = blocks.filter(b => b.type === 'contacts')
+                .map(b => `if(!document.getElementById('contactRows_b${b.id}').children.length)addContactRow_b${b.id}();`)
+                .join('\n            ');
+
+            // --- Sidebar dots (one per required section) ---
+            const sidebarItems = [];
+            let rIdx = 0;
+            blocks.forEach(block => {
+                if (!blockIsRequired(block)) return;
+                let lbl = block.config.title || block.config.label || 'Section';
+                if (lbl.length > 13) lbl = lbl.substring(0, 12) + '…';
+                sidebarItems.push({ index: rIdx++, label: bb(lbl) });
+            });
+            const sidebarHtml = sidebarItems.map((dot, i) =>
+                `<div class="flex items-center gap-2">` +
+                `<span id="sl-label-${dot.index}" class="text-xs font-semibold text-slate-400 text-right leading-tight">${dot.label}</span>` +
+                `<div id="sl-dot-${dot.index}" class="sl-dot sl-dot--pending"></div></div>` +
+                (i < sidebarItems.length - 1
+                    ? `<div class="self-end w-3.5 flex justify-center"><div id="sl-line-${dot.index}" class="sl-line sl-line--pending"></div></div>`
+                    : '')
+            ).join('\n        ');
+
+            // --- WC bar marker CSS (data-left-pct → left: X%) ---
+            const wcCssRules = [...new Set(blocks
+                .filter(b => b.type === 'text-upload' && b.config.wcEnabled)
+                .map(b => {
+                    const pct = (b.config.wcMin / b.config.wcMax * 100).toFixed(1);
+                    return `.wc-bar-marker[data-left-pct="${pct}"] { left: ${pct}%; }`;
+                }))].join('\n        ');
+
+            // --- Filename label (safe for filenames) ---
+            const filenameLabel = cfgLabel.replace(/[^a-zA-Z0-9_\- ]/g, '').replace(/\s+/g, '_') || 'submission';
+
+            // --- Welcome modal (only if text provided) ---
+            const welcomeModalHtml = welcome ? `
+    <div id="welcomeModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(15,23,42,0.7);">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8">
+            <div class="flex items-start gap-4 mb-5">
+                <div class="flex-shrink-0 bg-indigo-100 rounded-xl p-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#4338ca" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+                </div>
+                <div>
+                    <h2 class="text-xl font-bold text-slate-900">${bb(title)}</h2>
+                    ${subtitle ? `<p class="text-sm text-slate-500 mt-0.5">${bb(subtitle)}</p>` : ''}
+                </div>
+            </div>
+            <p class="text-sm text-slate-700 mb-6 leading-relaxed">${bb(welcome)}</p>
+            <button type="button" onclick="document.getElementById('welcomeModal').remove()"
+                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl transition-colors text-sm">
+                Get started
+            </button>
+        </div>
+    </div>` : '';
+
+            // --- Moodle link in download modal ---
+            const moodleLinkHtml = moodle ? `
+            <a href="${bb(moodle)}" target="_blank" rel="noopener"
+                class="mt-3 w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition-colors text-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 0 2 2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                Go to Moodle submission page
+            </a>` : '';
+
+            // ─── Assemble output HTML ─────────────────────────────────────────
+            const output = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${bb(title)}</title>
+    <script src="https://cdn.tailwindcss.com"><\/script>
+    <script src="https://cdn.jsdelivr.net/npm/mammoth@1.12.0/mammoth.browser.min.js"><\/script>
+    <script src="https://cdn.jsdelivr.net/npm/html-docx-js@0.3.1/dist/html-docx.js"><\/script>
+    <style>
+        body { font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; }
+        .input-std { width:100%; padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:14px; outline:none; transition:border-color 0.2s, box-shadow 0.2s; }
+        .input-std:focus { border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,0.1); }
+        .section-header { font-weight:700; color:#1e293b; text-transform:uppercase; letter-spacing:0.05em; font-size:0.9em; margin-bottom:12px; border-bottom:2px solid #e2e8f0; padding-bottom:8px; display:flex; align-items:center; gap:8px; }
+        .drop-zone { border:2px dashed #cbd5e1; border-radius:8px; padding:24px; text-align:center; transition:all 0.2s; background:#fff; cursor:pointer; }
+        .drop-zone:hover, .drop-zone.drag-over { border-color:#6366f1; background:#eef2ff; }
+        .drop-zone.loaded { border-color:#10b981; border-style:solid; background:#f0fdf4; }
+        .editor-toolbar { display:flex; gap:3px; flex-wrap:wrap; margin-bottom:6px; }
+        .editor-btn { padding:2px 7px; border:1px solid #e2e8f0; border-radius:5px; background:white; cursor:pointer; font-size:12px; color:#475569; line-height:1.6; white-space:nowrap; }
+        .editor-btn:hover { background:#f1f5f9; border-color:#cbd5e1; }
+        .editor-content { width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-size:14px; font-family:'Segoe UI',sans-serif; outline:none; transition:border-color 0.2s; overflow-y:auto; line-height:1.7; color:#1e293b; }
+        .editor-content:focus { border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,0.1); }
+        .editor-content:empty::before { content:attr(data-placeholder); color:#94a3b8; pointer-events:none; display:block; }
+        .editor-content h3 { font-size:15px; font-weight:bold; margin:10px 0 4px 0; color:#1e293b; }
+        .editor-content p { margin:0 0 8px 0; }
+        .editor-content a { color:#4338ca; text-decoration:underline; }
+        .editor-content--tall { min-height:256px; }
+        .editor-content--short { min-height:128px; }
+        .editor-content img, .preview-panel-body img { max-width:100%; height:auto; }
+        .preview-panel { border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; }
+        .preview-panel-header { display:flex; justify-content:space-between; align-items:center; padding:8px 14px; background:#f8fafc; border-bottom:1px solid #e2e8f0; }
+        .preview-panel-body { padding:16px; max-height:280px; overflow-y:auto; font-size:13px; color:#334155; line-height:1.6; background:white; }
+        .wc-bar-track { position:relative; height:8px; background:#e2e8f0; border-radius:99px; overflow:visible; margin-top:8px; }
+        .wc-bar-fill { height:100%; border-radius:99px; transition:width 0.3s ease, background-color 0.3s ease; width:0%; background:#e2e8f0; }
+        .wc-bar-marker { position:absolute; top:-5px; bottom:-5px; width:2px; background:#94a3b8; border-radius:1px; pointer-events:none; }
+        .wc-bar-marker::after { content:attr(data-label); position:absolute; top:-18px; left:50%; transform:translateX(-50%); font-size:10px; color:#94a3b8; white-space:nowrap; font-family:'Segoe UI',sans-serif; }
+        ${wcCssRules}
+        #sidebarTracker { position:fixed; right:1.25rem; top:50%; transform:translateY(-50%); z-index:40; }
+        .sl-dot { width:14px; height:14px; border-radius:50%; flex-shrink:0; transition:background-color 0.3s, box-shadow 0.3s; }
+        .sl-dot--done { background:#10b981; box-shadow:0 0 0 3px rgba(16,185,129,0.2); }
+        .sl-dot--pending { background:#cbd5e1; }
+        .sl-line { width:2px; height:22px; transition:background-color 0.3s; }
+        .sl-line--done { background:#10b981; }
+        .sl-line--pending { background:#e2e8f0; }
+        .section-card { transition:background-color 0.4s ease, border-color 0.4s ease; }
+        .section-card.section-card--complete { background-color:#f0fdf4; border-color:#a7f3d0; }
+        #downloadModal { background:rgba(15,23,42,0.7); }
+    </style>
+</head>
+<body class="text-slate-800 p-4 md:p-8 flex justify-center">
+
+    ${welcomeModalHtml}
+
+    <div id="sidebarTracker" class="hidden lg:flex flex-col items-end">
+        ${sidebarHtml}
+    </div>
+
+    <div class="max-w-6xl w-full bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden relative">
+
+        <div class="bg-slate-900 text-white p-6 border-b border-slate-800 flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold">${bb(title).toUpperCase()}</h1>
+                ${subtitle ? `<p class="text-slate-400 text-sm mt-1">${bb(subtitle)}</p>` : ''}
+            </div>
+            <div class="flex items-center gap-2">
+                <button type="button" onclick="previewDocument()"
+                    class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2.5 px-5 rounded-xl flex items-center gap-2 text-sm transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    Preview doc
+                </button>
+                <button type="button" onclick="generateDocument()"
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-5 rounded-xl flex items-center gap-2 text-sm transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Download .docx
+                </button>
+            </div>
+        </div>
+
+        <div class="lg:hidden px-6 py-3 border-b border-slate-100 bg-slate-50">
+            <div class="flex items-center justify-between mb-1.5">
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">Progress</span>
+                <span id="progLabel" class="text-xs font-semibold text-slate-500">0 of ${requiredCount} complete</span>
+            </div>
+            <div class="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                <div id="progBar" class="h-full bg-indigo-500 rounded-full transition-all duration-500" style="width:0%"></div>
+            </div>
+        </div>
+
+        <div id="validationBanner" class="hidden mx-6 mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p class="text-sm font-bold text-red-700 mb-1">Please complete the following before generating:</p>
+            <ul id="validationList" class="list-disc list-inside text-sm text-red-600 space-y-0.5"></ul>
+        </div>
+
+        <div id="storageWarnBanner" class="hidden mx-6 mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0 text-amber-500 mt-0.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <div>
+                <p class="text-sm font-bold text-amber-800 mb-1">Auto-save storage full</p>
+                <p class="text-sm text-amber-700 leading-relaxed">Your content is too large to save automatically &mdash; uploaded files containing large images are the likely cause. Your work is safe <em>right now</em>, but <strong>it will not be recovered if you refresh or close the page</strong>. Download your document to preserve your progress.</p>
+            </div>
+        </div>
+
+        <form id="submissionForm" class="p-6 md:p-8 space-y-8" onsubmit="return false;">
+            ${formHtml}
+        </form>
+
+    </div>
+
+    <div id="downloadModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
+            <div class="flex items-start gap-4 mb-5">
+                <div class="flex-shrink-0 bg-emerald-100 rounded-xl p-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><polyline points="8 13 10 15 16 9"/></svg>
+                </div>
+                <div>
+                    <h2 class="text-xl font-bold text-slate-900">Document downloaded</h2>
+                    <p class="text-sm text-slate-500 mt-0.5">Check before uploading to Moodle</p>
+                </div>
+            </div>
+            ${moodleLinkHtml}
+            <button type="button" onclick="document.getElementById('downloadModal').classList.add('hidden');document.getElementById('downloadModal').classList.remove('flex');"
+                class="mt-3 w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl transition-colors text-sm">
+                Close
+            </button>
+        </div>
+    </div>
+
+    <div id="previewDocModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4" style="background:rgba(15,23,42,0.7)">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col" style="max-height:90vh">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-200 flex-shrink-0">
+                <div class="flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4338ca" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <span class="font-bold text-slate-800 text-sm">Document Preview</span>
+                    <span class="text-xs text-slate-400">— shows what your .docx will contain</span>
+                </div>
+                <button type="button" onclick="closeDocPreview()" class="text-slate-400 hover:text-slate-700 text-sm font-bold px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors">✕ Close</button>
+            </div>
+            <div id="previewDocContent" class="overflow-y-auto p-8" style="font-family:Arial,sans-serif;font-size:13px;line-height:1.6;color:#1e293b;"></div>
+            <div class="flex-shrink-0 px-6 py-4 border-t border-slate-200 flex justify-end gap-3">
+                <button type="button" onclick="closeDocPreview()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 px-4 rounded-xl transition-colors text-sm">Close</button>
+                <button type="button" onclick="closeDocPreview();generateDocument()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-xl transition-colors text-sm flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Download .docx
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const LS_KEY = 'bb_${filenameLabel.toLowerCase()}';
+        const DOC_H2S = 'font-family:Arial,sans-serif;font-size:15px;font-weight:bold;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #e2e8f0;padding-bottom:6px;margin:28px 0 10px 0;color:#1e293b;';
+        const DOC_THS = 'border:1px solid #cbd5e1;padding:8px;vertical-align:top;font-weight:bold;background:#f1f5f9;width:30%;font-family:Arial,sans-serif;font-size:13px;';
+        const DOC_TDS = 'border:1px solid #cbd5e1;padding:8px;vertical-align:top;font-family:Arial,sans-serif;font-size:13px;';
+        const DOC_BF  = 'font-family:Arial,sans-serif;font-size:13px;';
+
+        ${jsFragments}
+
+        function escapeHtml(str) {
+            return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+        }
+        function escapeAttr(str) {
+            return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+        }
+        function textToHtmlParagraphs(str) {
+            if (!str||!str.trim()) return '';
+            return str.split(/\\n[ \\t]*\\n/).filter(b=>b.trim()).map(b=>'<p style="margin:0 0 10px 0;">'+escapeHtml(b.trim()).replace(/\\n/g,'<br>')+'</p>').join('');
+        }
+        function styleEditorHtml(html) {
+            const doc = new DOMParser().parseFromString(html,'text/html');
+            doc.querySelectorAll('h3').forEach(el=>{el.style.cssText='font-family:Arial,sans-serif;font-size:15px;font-weight:bold;margin:14px 0 5px 0;color:#1e293b;';});
+            doc.querySelectorAll('h2').forEach(el=>{el.style.cssText='font-family:Arial,sans-serif;font-size:16px;font-weight:bold;margin:16px 0 6px 0;color:#1e293b;';});
+            doc.querySelectorAll('p').forEach(el=>{el.style.cssText='font-family:Arial,sans-serif;font-size:13px;margin:0 0 9px 0;line-height:1.6;';});
+            doc.querySelectorAll('a').forEach(el=>{el.style.cssText='color:#4338ca;';});
+            doc.querySelectorAll('b,strong').forEach(el=>{el.style.fontWeight='bold';});
+            doc.querySelectorAll('i,em').forEach(el=>{el.style.fontStyle='italic';});
+            return doc.body.innerHTML;
+        }
+        function formatDoc(command) {
+            if (command==='h3') {
+                const sel=window.getSelection(); let inH3=false;
+                if (sel&&sel.anchorNode){const node=sel.anchorNode.nodeType===3?sel.anchorNode.parentElement:sel.anchorNode;inH3=!!node.closest('h3');}
+                document.execCommand('formatBlock',false,inH3?'p':'h3'); return;
+            }
+            if (command==='link'){const url=prompt('Enter URL:');if(url&&url.trim())document.execCommand('createLink',false,url.trim());return;}
+            document.execCommand(command);
+        }
+        function handleDragOver(event){event.preventDefault();event.currentTarget.classList.add('drag-over');}
+        function handleDragLeave(event,zoneId){if(!event.currentTarget.contains(event.relatedTarget))document.getElementById(zoneId).classList.remove('drag-over');}
+        const MAX_FILE_SIZE=10*1024*1024;
+        async function processFile(file) {
+            if(file.size>MAX_FILE_SIZE)throw new Error('"'+file.name+'" is too large. Maximum file size is 10 MB.');
+            const ext=file.name.split('.').pop().toLowerCase();
+            if(ext==='docx'){const ab=await file.arrayBuffer();const r=await mammoth.convertToHtml({arrayBuffer:ab});return r.value;}
+            if(ext==='doc'){const raw=await file.text();const m=raw.replace(/^\\uFEFF/,'').match(/<body[^>]*>([\\s\\S]*)<\\/body>/i);return m?m[1]:raw;}
+            throw new Error('Unsupported file type: .'+ext+'. Please use .doc or .docx.');
+        }
+        function buildMetadataSection(rows) {
+            const mThS='border:1px solid #e2e8f0;padding:5px 8px;font-weight:bold;background:#f8fafc;width:40%;font-size:11px;font-family:Arial,sans-serif;';
+            const mTdS='border:1px solid #e2e8f0;padding:5px 8px;font-size:11px;font-family:Arial,sans-serif;';
+            const h2M='font-family:Arial,sans-serif;font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;border-bottom:1px solid #e2e8f0;padding-bottom:4px;margin:40px 0 8px 0;page-break-before:always;';
+            const meta='font-family:Arial,sans-serif;font-size:11px;color:#94a3b8;';
+            const trs=rows.map(r=>'<tr><td style="'+mThS+'">'+r[0]+'</td><td style="'+mTdS+'">'+escapeHtml(String(r[1]))+'</td></tr>').join('');
+            return '<h2 style="'+h2M+'">__SUBMISSION_DATA__</h2><p style="'+meta+'">Machine-readable metadata — do not edit.</p><table style="width:100%;border-collapse:collapse;">'+trs+'</table>';
+        }
+        function saveState() {
+            try { localStorage.setItem(LS_KEY, JSON.stringify({ ${saveEntries} })); document.getElementById('storageWarnBanner')?.classList.add('hidden'); } catch(e) { if(e&&(e.name==='QuotaExceededError'||e.name==='NS_ERROR_DOM_QUOTA_REACHED'||e.code===22)){document.getElementById('storageWarnBanner')?.classList.remove('hidden');}}
+        }
+        function restoreState() {
+            try {
+                const raw=localStorage.getItem(LS_KEY); if(!raw) return;
+                const s=JSON.parse(raw);
+                ${restoreStmts}
+            } catch(e) {}
+        }
+        function updateProgress() {
+            const checks=[${progressExprs.map(e => '\n                ' + e).join(',')}
+            ];
+            const total=checks.length, complete=checks.filter(Boolean).length;
+            checks.forEach((done,i)=>{
+                const dot=document.getElementById('sl-dot-'+i);
+                const lbl=document.getElementById('sl-label-'+i);
+                const line=document.getElementById('sl-line-'+i);
+                const card=document.getElementById('section-'+i);
+                if(dot) dot.className ='sl-dot ' +(done?'sl-dot--done':'sl-dot--pending');
+                if(lbl) lbl.className ='text-xs font-semibold text-right leading-tight '+(done?'text-emerald-600':'text-slate-400');
+                if(line)line.className='sl-line '+(done?'sl-line--done':'sl-line--pending');
+                if(card)card.classList.toggle('section-card--complete',done);
+            });
+            const bar=document.getElementById('progBar'), lbl=document.getElementById('progLabel');
+            if(bar) bar.style.width=(total?Math.round(complete/total*100):0)+'%';
+            if(lbl) lbl.textContent=complete+' of '+total+' complete';
+        }
+        function validate() {
+            const missing=[];
+            ${validateStmts}
+            const banner=document.getElementById('validationBanner'), list=document.getElementById('validationList');
+            if(missing.length>0){list.innerHTML=missing.map(m=>'<li>'+escapeHtml(m)+'</li>').join('');banner.classList.remove('hidden');let _st=banner;for(let _i=0;_i<${requiredCount};_i++){const _s=document.getElementById('section-'+_i);if(_s&&!_s.classList.contains('section-card--complete')){_st=_s;break;}}_st.scrollIntoView({behavior:'smooth',block:'start'});return false;}
+            banner.classList.add('hidden'); return true;
+        }
+        function previewDocument() {
+            const sections=[];
+            ${docCalls}
+            const docBody='<h1 style="font-family:Arial,sans-serif;font-size:22px;font-weight:bold;margin-bottom:4px;">${bb(title).toUpperCase()}</h1>'+
+                '<p style="font-family:Arial,sans-serif;font-size:11px;color:#64748b;margin-bottom:24px;font-style:italic;">Preview — not yet downloaded</p>'+
+                sections.join('');
+            document.getElementById('previewDocContent').innerHTML=docBody;
+            const modal=document.getElementById('previewDocModal');
+            modal.classList.remove('hidden');modal.classList.add('flex');
+        }
+        function closeDocPreview() {
+            const modal=document.getElementById('previewDocModal');
+            modal.classList.add('hidden');modal.classList.remove('flex');
+        }
+        function generateDocument() {
+            if(!validate()) return;
+            const metaRows=[];
+            ${metaStmts}
+            const sections=[];
+            ${docCalls}
+            const _sName=(document.getElementById('studentName')?.value||'Student').trim().replace(/\\s+/g,'');
+            const _sId=(document.getElementById('studentId')?.value||'ID').trim();
+            const filename=_sId+'_'+_sName+'_${filenameLabel}_Submission.docx';
+            const docBody='<h1 style="font-family:Arial,sans-serif;font-size:22px;font-weight:bold;margin-bottom:4px;">${bb(title).toUpperCase()}</h1>'+
+                '<p style="font-family:Arial,sans-serif;font-size:11px;color:#64748b;margin-bottom:24px;">Generated by ${bb(title)}</p>'+
+                sections.join('')+buildMetadataSection(metaRows);
+            const fullHtml='<!DOCTYPE html><html><head><meta charset="utf-8"><title>${bb(title)}</title><style>img{max-width:100%;height:auto;}</style></head><body style="font-family:Arial,sans-serif;margin:40px;">'+docBody+'</body></html>';
+            const blob=htmlDocx.asBlob(fullHtml);
+            const link=document.createElement('a');
+            link.href=URL.createObjectURL(blob);link.download=filename;
+            document.body.appendChild(link);link.click();document.body.removeChild(link);
+            const modal=document.getElementById('downloadModal');
+            modal.classList.remove('hidden');modal.classList.add('flex');
+        }
+        window.addEventListener('DOMContentLoaded',()=>{
+            restoreState();
+            ${contactInits}
+            updateProgress();
+        });
+    <\/script>
+</body>
+</html>`;
+
+            // Trigger download of the assembled HTML file
+            const outFilename = filenameLabel + '.html';
+            const blob = new Blob([output], { type: 'text/html;charset=utf-8' });
+            const url  = URL.createObjectURL(blob);
+            const a    = document.createElement('a');
+            a.href = url; a.download = outFilename;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // ─── Preview ──────────────────────────────────────────────────────────
+        function previewForm() {
+            syncFromDom();
+            if (blocks.length === 0) { alert('Add at least one block before previewing.'); return; }
+
+            const title    = document.getElementById('cfg-title').value.trim() || 'Preview';
+            const subtitle = document.getElementById('cfg-subtitle').value.trim();
+
+            let sIdx = 0;
+            const sectionIndices = blocks.map(block => blockIsRequired(block) ? sIdx++ : null);
+            const formHtml = blocks.map((block, i) => {
+                const gen = BLOCK_HTML[block.type];
+                return gen ? gen(block.config, `b${block.id}`, sectionIndices[i]) : '';
+            }).join('\n');
+
+            const wcCssRules = [...new Set(blocks
+                .filter(b => b.type === 'text-upload' && b.config.wcEnabled)
+                .map(b => {
+                    const pct = (b.config.wcMin / b.config.wcMax * 100).toFixed(1);
+                    return `.wc-bar-marker[data-left-pct="${pct}"] { left: ${pct}%; }`;
+                }))].join('\n        ');
+
+            const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Preview — ${bb(title)}</title>
+    <script src="https://cdn.tailwindcss.com"><\/script>
+    <style>
+        body { font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; }
+        .input-std { width:100%; padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:14px; outline:none; }
+        .section-header { font-weight:700; color:#1e293b; text-transform:uppercase; letter-spacing:0.05em; font-size:0.9em; margin-bottom:12px; border-bottom:2px solid #e2e8f0; padding-bottom:8px; display:flex; align-items:center; gap:8px; }
+        .drop-zone { border:2px dashed #cbd5e1; border-radius:8px; padding:24px; text-align:center; background:#fff; cursor:default; }
+        .editor-toolbar { display:flex; gap:3px; flex-wrap:wrap; margin-bottom:6px; }
+        .editor-btn { padding:2px 7px; border:1px solid #e2e8f0; border-radius:5px; background:white; font-size:12px; color:#475569; line-height:1.6; white-space:nowrap; cursor:default; }
+        .editor-content { width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-size:14px; font-family:'Segoe UI',sans-serif; overflow-y:auto; line-height:1.7; color:#1e293b; }
+        .editor-content:empty::before { content:attr(data-placeholder); color:#94a3b8; pointer-events:none; display:block; }
+        .editor-content--tall { min-height:256px; }
+        .editor-content--short { min-height:128px; }
+        .editor-content img, .preview-panel-body img { max-width:100%; height:auto; }
+        .preview-panel { border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; }
+        .preview-panel-header { display:flex; justify-content:space-between; align-items:center; padding:8px 14px; background:#f8fafc; border-bottom:1px solid #e2e8f0; }
+        .preview-panel-body { padding:16px; max-height:280px; overflow-y:auto; font-size:13px; }
+        .wc-bar-track { position:relative; height:8px; background:#e2e8f0; border-radius:99px; overflow:visible; margin-top:8px; }
+        .wc-bar-fill { height:100%; border-radius:99px; width:0%; background:#e2e8f0; }
+        .wc-bar-marker { position:absolute; top:-5px; bottom:-5px; width:2px; background:#94a3b8; border-radius:1px; }
+        .wc-bar-marker::after { content:attr(data-label); position:absolute; top:-18px; left:50%; transform:translateX(-50%); font-size:10px; color:#94a3b8; white-space:nowrap; }
+        ${wcCssRules}
+        .section-card { transition:background-color 0.4s ease, border-color 0.4s ease; }
+    </style>
+</head>
+<body class="text-slate-800 p-4 md:p-8 flex justify-center bg-slate-100">
+    <div class="max-w-4xl w-full">
+        <div class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-5 flex items-center gap-3 text-sm text-amber-700">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span><strong>Preview mode</strong> — layout only. Interactions, file uploads, and word count are not active.</span>
+        </div>
+        <div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+            <div class="bg-slate-900 text-white p-6 border-b border-slate-800">
+                <h1 class="text-2xl font-bold">${bb(title).toUpperCase()}</h1>
+                ${subtitle ? `<p class="text-slate-400 text-sm mt-1">${bb(subtitle)}</p>` : ''}
+            </div>
+            <form class="p-6 md:p-8 space-y-8" onsubmit="return false;">
+                ${formHtml}
+            </form>
+        </div>
+    </div>
+</body>
+</html>`;
+
+            const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+            const iframe = document.getElementById('previewIframe');
+            if (iframe._previewUrl) URL.revokeObjectURL(iframe._previewUrl);
+            iframe._previewUrl = URL.createObjectURL(blob);
+            iframe.src = iframe._previewUrl;
+            document.getElementById('previewModal').classList.remove('hidden');
+        }
+
+        function closePreview() {
+            const modal  = document.getElementById('previewModal');
+            const iframe = document.getElementById('previewIframe');
+            modal.classList.add('hidden');
+            iframe.src = '';
+            if (iframe._previewUrl) { URL.revokeObjectURL(iframe._previewUrl); iframe._previewUrl = null; }
+        }
+
+        // ─── JS Fragment Generation ────────────────────────────────────────────
+        // Each block type exposes:
+        //   fragment(c,k)      → standalone JS (state vars + event handlers + docSection fn)
+        //   saveEntry(c,k)     → "key:expr" string contributed to the saveState() object literal
+        //   restoreCode(c,k)   → string[] of statements run inside restoreState()
+        //   progressCheck(c,k) → boolean expression for updateProgress() checks[] (null = not required)
+        //   validateCode(c,k)  → string[] of statements run inside validate()
+        //   metaCode(c,k)      → string[] of statements that push to metaRows[]
+        //
+        // DOC_H2S / DOC_THS / DOC_TDS / DOC_BF are constants emitted once by Stage 5 assembly.
+
+        const BLOCK_JS = {
+
+            'student-identity': {
+                fragment(c, k) {
+                    return `
+function docSection_${k}() {
+    var n = document.getElementById('studentName').value.trim();
+    var i = document.getElementById('studentId').value.trim();
+    return '<h2 style="' + DOC_H2S + '">${bb(c.title)}</h2>' +
+        '<table style="width:100%;border-collapse:collapse;' + DOC_BF + '">' +
+        '<tr><td style="' + DOC_THS + '">Full Name</td><td style="' + DOC_TDS + '">' + escapeHtml(n) + '</td></tr>' +
+        '<tr><td style="' + DOC_THS + '">Student ID</td><td style="' + DOC_TDS + '">' + escapeHtml(i) + '</td></tr>' +
+        '</table>';
+}`;
+                },
+                saveEntry(c, k) {
+                    return `studentName:document.getElementById('studentName').value,` +
+                           `studentId:document.getElementById('studentId').value`;
+                },
+                restoreCode(c, k) { return [
+                    `if(s.studentName)document.getElementById('studentName').value=s.studentName;`,
+                    `if(s.studentId)document.getElementById('studentId').value=s.studentId;`
+                ]; },
+                progressCheck(c, k) {
+                    return `!!(document.getElementById('studentName').value.trim())` +
+                           `&&!!(document.getElementById('studentId').value.trim())`;
+                },
+                validateCode(c, k) { return [
+                    `if(!document.getElementById('studentName').value.trim())missing.push('Student Name');`,
+                    `if(!document.getElementById('studentId').value.trim())missing.push('Student ID');`
+                ]; },
+                metaCode(c, k) { return [
+                    `metaRows.push(['STUDENT_NAME',document.getElementById('studentName').value.trim()]);`,
+                    `metaRows.push(['STUDENT_ID',document.getElementById('studentId').value.trim()]);`,
+                    `metaRows.push(['SUBMISSION_DATE',new Date().toLocaleDateString('en-GB')]);`,
+                    `metaRows.push(['GENERATION_TIME',new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})]);`
+                ]; }
+            },
+
+            'text-upload': {
+                fragment(c, k) {
+                    const edId = `editor_${k}`;
+                    let js = '';
+
+                    js += `
+function checkImgWarn_${k}() {
+    const warn = document.getElementById('imgWarn_${k}');
+    if (!warn) return;
+    let hasImg = false;
+    ${!c.uploadOnly ? `hasImg = hasImg || !!(document.getElementById('${edId}') && document.getElementById('${edId}').querySelector('img'));` : ''}
+    ${(c.uploadEnabled || c.uploadOnly) ? `hasImg = hasImg || uploadFiles_${k}.some(f => f.html.includes('<img'));` : ''}
+    warn.classList.toggle('hidden', !hasImg);
+}`;
+
+                    if (c.uploadEnabled || c.uploadOnly) {
+                        const zId  = `uploadZone_${k}`, inId  = `uploadInput_${k}`;
+                        const erId = `uploadErr_${k}`,  lstId = `uploadList_${k}`;
+                        js += `
+let uploadFiles_${k} = [];
+function handleUploadDrop_${k}(event) {
+    event.preventDefault();
+    document.getElementById('${zId}').classList.remove('drag-over');
+    Array.from(event.dataTransfer.files).forEach(f => loadUploadFile_${k}(f));
+}
+function handleUploadFileSelect_${k}(event) {
+    Array.from(event.target.files).forEach(f => loadUploadFile_${k}(f));
+    event.target.value = '';
+}
+async function loadUploadFile_${k}(file) {
+    const errEl = document.getElementById('${erId}'); errEl.classList.add('hidden');
+    try {
+        const html = await processFile(file);
+        uploadFiles_${k}.push({ name: file.name, html });
+        renderUploadList_${k}();
+        updateProgress();
+    } catch(e) { errEl.textContent = e.message; errEl.classList.remove('hidden'); }
+}
+function renderUploadList_${k}() {
+    const container = document.getElementById('${lstId}');
+    if (!uploadFiles_${k}.length) { container.innerHTML = ''; checkImgWarn_${k}(); return; }
+    const docIco = '<svg xmlns=\\"http://www.w3.org/2000/svg\\" width=\\"14\\" height=\\"14\\" viewBox=\\"0 0 24 24\\" fill=\\"none\\" stroke=\\"currentColor\\" stroke-width=\\"2\\" stroke-linecap=\\"round\\" stroke-linejoin=\\"round\\"><path d=\\"M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z\\"/><polyline points=\\"14 2 14 8 20 8\\"/></svg>';
+    const xIco   = '<svg xmlns=\\"http://www.w3.org/2000/svg\\" width=\\"14\\" height=\\"14\\" viewBox=\\"0 0 24 24\\" fill=\\"none\\" stroke=\\"currentColor\\" stroke-width=\\"2.5\\" stroke-linecap=\\"round\\" stroke-linejoin=\\"round\\"><line x1=\\"18\\" y1=\\"6\\" x2=\\"6\\" y2=\\"18\\"/><line x1=\\"6\\" y1=\\"6\\" x2=\\"18\\" y2=\\"18\\"/></svg>';
+    container.innerHTML = uploadFiles_${k}.map((f, i) =>
+        '<div class=\\"rounded-lg border border-emerald-200 bg-emerald-50 overflow-hidden\\">' +
+            '<div class=\\"flex items-center gap-2 px-3 py-2\\">' +
+                '<span class=\\"text-emerald-500 flex-shrink-0\\">' + docIco + '</span>' +
+                '<span class=\\"flex-1 text-sm font-semibold text-emerald-700 truncate\\">' + escapeHtml(f.name) + '</span>' +
+                '<button type=\\"button\\" onclick=\\"toggleUploadPreview_${k}(' + i + ')\\" class=\\"text-xs font-semibold text-indigo-600 hover:text-indigo-800 px-2 py-0.5 flex-shrink-0\\">Preview</button>' +
+                '<button type=\\"button\\" onclick=\\"removeUpload_${k}(' + i + ')\\" class=\\"text-slate-300 hover:text-red-500 transition-colors p-1 flex-shrink-0\\" title=\\"Remove\\">' + xIco + '</button>' +
+            '</div>' +
+            '<div id=\\"uploadPreview_${k}_' + i + '\\" class=\\"hidden border-t border-emerald-100 p-4 bg-white text-sm leading-relaxed max-h-60 overflow-y-auto\\">' + f.html + '</div>' +
+        '</div>'
+    ).join('');
+    checkImgWarn_${k}();
+}
+function toggleUploadPreview_${k}(i) {
+    const el = document.getElementById('uploadPreview_${k}_' + i);
+    if (el) el.classList.toggle('hidden');
+}
+function removeUpload_${k}(i) {
+    uploadFiles_${k}.splice(i, 1);
+    renderUploadList_${k}();
+    updateProgress();
+    saveState();
+}`;
+                    }
+
+                    if (c.wcEnabled && !c.uploadOnly) {
+                        js += `
+function updateWordCount_${k}() {
+    const text  = (document.getElementById('${edId}').innerText || '').replace(/\\u00a0/g, ' ').trim();
+    const count = text ? text.split(/\\s+/).filter(w => w.length > 0).length : 0;
+    const bar   = document.getElementById('wcBar_${k}');
+    const label = document.getElementById('wcDisplay_${k}');
+    const wcMin = ${c.wcMin}, wcMax = ${c.wcMax};
+    const pct = Math.min(count / wcMax * 100, 100);
+    bar.style.width = pct + '%';
+    if (count === 0) {
+        bar.style.background = '#e2e8f0'; label.className = 'mt-3 text-sm font-bold text-slate-400';
+        label.textContent = '0 words \\u2014 target: ' + wcMin + '\\u2013' + wcMax;
+    } else if (count >= wcMin && count <= wcMax) {
+        bar.style.background = '#10b981'; label.className = 'mt-3 text-sm font-bold text-emerald-600';
+        label.textContent = count + ' words \\u2713';
+    } else if (count > wcMax) {
+        bar.style.background = '#f87171'; label.className = 'mt-3 text-sm font-bold text-red-500';
+        label.textContent = count + ' words \\u2014 ' + (count - wcMax) + ' over the limit';
+    } else {
+        bar.style.background = '#fbbf24'; label.className = 'mt-3 text-sm font-bold text-amber-500';
+        label.textContent = count + ' words \\u2014 ' + (wcMin - count) + ' more to reach minimum';
+    }
+    updateProgress(); saveState(); checkImgWarn_${k}();
+}`;
+                    }
+
+                    // docSection: uploaded files first, then editor content (if not upload-only)
+                    js += `
+function docSection_${k}() {
+    const parts = [];
+    ${(c.uploadEnabled || c.uploadOnly) ? `uploadFiles_${k}.forEach((f, i) => { if (i > 0) parts.push('<div style="page-break-before:always;"></div>'); parts.push(f.html); });` : ''}
+    ${!c.uploadOnly ? `
+    const edHtml = document.getElementById('${edId}').innerHTML;
+    const edText = (document.getElementById('${edId}').innerText || '').trim();
+    if (edText) parts.push('<div style="' + DOC_BF + '">' + styleEditorHtml(edHtml) + '</div>');` : ''}
+    return '<h2 style="' + DOC_H2S + '">${bb(c.title)}</h2>' + parts.join('');
+}`;
+                    return js;
+                },
+                saveEntry(c, k) {
+                    const parts = [];
+                    if (!c.uploadOnly) parts.push(`${k}_editor:document.getElementById('editor_${k}').innerHTML`);
+                    if (c.uploadEnabled || c.uploadOnly) parts.push(`${k}_uploads:uploadFiles_${k}`);
+                    return parts.length ? parts.join(',') : null;
+                },
+                restoreCode(c, k) {
+                    const lines = [];
+                    if (!c.uploadOnly) {
+                        lines.push(
+                            `if(s.${k}_editor){document.getElementById('editor_${k}').innerHTML=s.${k}_editor;` +
+                            (c.wcEnabled ? `updateWordCount_${k}();` : `checkImgWarn_${k}();`) + `}`
+                        );
+                    }
+                    if (c.uploadEnabled || c.uploadOnly) {
+                        lines.push(
+                            `if(s.${k}_uploads&&s.${k}_uploads.length){uploadFiles_${k}=s.${k}_uploads;renderUploadList_${k}();updateProgress();}`
+                        );
+                    }
+                    return lines;
+                },
+                progressCheck(c, k) {
+                    if (!c.required) return null;
+                    if (c.uploadOnly) return `uploadFiles_${k}.length > 0`;
+                    if (c.uploadEnabled) return `(uploadFiles_${k}.length > 0 || !!(document.getElementById('editor_${k}').innerText||'').trim())`;
+                    return `!!(document.getElementById('editor_${k}').innerText||'').trim()`;
+                },
+                validateCode(c, k) {
+                    if (!c.required) return [];
+                    if (c.uploadOnly) return [`if(uploadFiles_${k}.length === 0)missing.push('${bb(c.title)}');`];
+                    if (c.uploadEnabled) return [`if(uploadFiles_${k}.length === 0 && !(document.getElementById('editor_${k}').innerText||'').trim())missing.push('${bb(c.title)}');`];
+                    return [`if(!(document.getElementById('editor_${k}').innerText||'').trim())missing.push('${bb(c.title)}');`];
+                },
+                metaCode(c, k) {
+                    const key = bb(c.title).toUpperCase().replace(/\s+/g,'_');
+                    const rows = [];
+                    if (!c.uploadOnly) {
+                        rows.push(`metaRows.push(['${key}_WORD_COUNT',String((document.getElementById('editor_${k}').innerText||'').replace(/\\u00a0/g,' ').trim().split(/\\s+/).filter(w=>w.length>0).length)]);`);
+                    }
+                    if (c.uploadEnabled || c.uploadOnly) {
+                        rows.push(`metaRows.push(['${key}_UPLOADS',String(uploadFiles_${k}.length)]);`);
+                        rows.push(`metaRows.push(['${key}_FILENAMES',uploadFiles_${k}.map(f=>f.name).join(', ')||'none']);`);
+                    }
+                    return rows;
+                }
+            },
+
+            'contacts': {
+                fragment(c, k) {
+                    const cId = `contactRows_${k}`, pfx = `cr_${k}_`;
+                    return `
+let contactRowCounter_${k} = 0;
+function addContactRow_${k}(data) {
+    contactRowCounter_${k}++;
+    const n  = contactRowCounter_${k};
+    const id = '${pfx}' + n;
+    const ea  = v => escapeAttr(v || '');
+    const sel = (v, o) => v === o ? ' selected' : '';
+    const d   = data || {};
+    const container = document.getElementById('${cId}');
+    const row = document.createElement('div');
+    row.id = id; row.className = 'bg-white rounded-lg border border-slate-200 p-4';
+    row.innerHTML =
+        '<div class="flex justify-between items-center mb-3">' +
+            '<span class="text-xs font-bold text-slate-500 uppercase">Interviewee ' + n + '</span>' +
+            '<button type="button" onclick="removeContactRow_${k}(\\'' + id + '\\')" class="text-slate-300 hover:text-red-500 transition-colors p-1">' +
+                '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' +
+            '</button></div>' +
+        '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">' +
+            '<div><label class="block text-xs font-bold text-slate-500 mb-1">Name</label>' +
+                '<input type="text" class="input-std c-name" placeholder="Full name" oninput="saveState();updateProgress();" value="' + ea(d.name) + '"></div>' +
+            '<div><label class="block text-xs font-bold text-slate-500 mb-1">Organisation Name</label>' +
+                '<input type="text" class="input-std c-org" placeholder="e.g. Manchester City Council" oninput="saveState();" value="' + ea(d.org) + '"></div>' +
+            '<div><label class="block text-xs font-bold text-slate-500 mb-1">Role / Job Title</label>' +
+                '<input type="text" class="input-std c-role" placeholder="e.g. Director of Communications" oninput="saveState();" value="' + ea(d.role) + '"></div>' +
+            '<div><label class="block text-xs font-bold text-slate-500 mb-1">Address</label>' +
+                '<input type="text" class="input-std c-address" placeholder="Address" oninput="saveState();" value="' + ea(d.address) + '"></div>' +
+            '<div><label class="block text-xs font-bold text-slate-500 mb-1">Contact Number</label>' +
+                '<input type="text" class="input-std c-phone" placeholder="Phone number" oninput="saveState();" value="' + ea(d.phone) + '"></div>' +
+            '<div><label class="block text-xs font-bold text-slate-500 mb-1">Email</label>' +
+                '<input type="email" class="input-std c-email" placeholder="email@example.com" oninput="saveState();" value="' + ea(d.email) + '"></div>' +
+            '<div><label class="block text-xs font-bold text-slate-500 mb-1">Purpose / Relationship</label>' +
+                '<select class="input-std c-purpose" onchange="saveState();">' +
+                    '<option value="">\\u2014 Select role \\u2014</option>' +
+                    '<option value="Expert / Academic"' + sel(d.purpose,'Expert / Academic') + '>Expert / Academic</option>' +
+                    '<option value="Institution/Organisation"' + sel(d.purpose,'Institution/Organisation') + '>Institution/Organisation</option>' +
+                    '<option value="Eyewitness / Directly affected"' + sel(d.purpose,'Eyewitness / Directly affected') + '>Eyewitness / Directly affected</option>' +
+                    '<option value="Vox pop / Community voice"' + sel(d.purpose,'Vox pop / Community voice') + '>Vox pop / Community voice</option>' +
+                    '<option value="Other"' + sel(d.purpose,'Other') + '>Other</option>' +
+                '</select></div>' +
+            '<div><label class="block text-xs font-bold text-slate-500 mb-1">Age</label>' +
+                '<input type="text" class="input-std c-age" placeholder="e.g. 34" oninput="saveState();" value="' + ea(d.age) + '"></div>' +
+            '<div><label class="block text-xs font-bold text-slate-500 mb-1">Gender</label>' +
+                '<input type="text" class="input-std c-gender" placeholder="e.g. Female" oninput="saveState();" value="' + ea(d.gender) + '"></div>' +
+            '<div><label class="block text-xs font-bold text-slate-500 mb-1">Ethnicity</label>' +
+                '<input type="text" class="input-std c-ethnicity" placeholder="e.g. White British" oninput="saveState();" value="' + ea(d.ethnicity) + '"></div>' +
+        '</div>';
+    container.appendChild(row);
+}
+function removeContactRow_${k}(id) {
+    const el = document.getElementById(id);
+    if (el) { el.remove(); saveState(); updateProgress(); }
+}
+function collectContactData_${k}() {
+    const rows = [];
+    document.querySelectorAll('#${cId} [id^="${pfx}"]').forEach(row => {
+        rows.push({
+            name:      row.querySelector('.c-name')?.value  || '',
+            org:       row.querySelector('.c-org')?.value   || '',
+            role:      row.querySelector('.c-role')?.value  || '',
+            address:   row.querySelector('.c-address')?.value || '',
+            phone:     row.querySelector('.c-phone')?.value   || '',
+            email:     row.querySelector('.c-email')?.value   || '',
+            purpose:   row.querySelector('.c-purpose')?.value || '',
+            age:       row.querySelector('.c-age')?.value     || '',
+            gender:    row.querySelector('.c-gender')?.value  || '',
+            ethnicity: row.querySelector('.c-ethnicity')?.value || ''
+        });
+    });
+    return rows;
+}
+function docSection_${k}() {
+    const cs  = 'border:1px solid #cbd5e1;padding:8px;vertical-align:top;font-family:Arial,sans-serif;font-size:13px;';
+    const ths = cs + 'font-weight:bold;background:#f1f5f9;width:35%;';
+    const r   = (label, val) => val ? '<tr><td style="'+ths+'">'+label+'</td><td style="'+cs+'">'+escapeHtml(val)+'</td></tr>' : '';
+    let html  = '';
+    let idx   = 0;
+    document.querySelectorAll('#${cId} [id^="${pfx}"]').forEach(row => {
+        idx++;
+        const n   = row.querySelector('.c-name')?.value     || '';
+        const org = row.querySelector('.c-org')?.value      || '';
+        const rol = row.querySelector('.c-role')?.value     || '';
+        const a   = row.querySelector('.c-address')?.value  || '';
+        const ph  = row.querySelector('.c-phone')?.value    || '';
+        const em  = row.querySelector('.c-email')?.value    || '';
+        const pu  = row.querySelector('.c-purpose')?.value  || '';
+        const dem = [row.querySelector('.c-age')?.value||'', row.querySelector('.c-gender')?.value||'', row.querySelector('.c-ethnicity')?.value||''].filter(Boolean).join(' / ');
+        const h3s = 'font-family:Arial,sans-serif;font-size:13px;font-weight:bold;margin:' + (idx > 1 ? '16px' : '8px') + ' 0 4px 0;color:#1e293b;';
+        html += '<p style="'+h3s+'">Contact ' + idx + (n ? ': ' + escapeHtml(n) : '') + '</p>' +
+            '<table style="width:100%;border-collapse:collapse;">' +
+            r('Name', n) + r('Organisation', org) + r('Role / Job Title', rol) +
+            r('Address', a) + r('Contact Number', ph) + r('Email', em) +
+            r('Purpose / Relationship', pu) + r('Age / Gender / Ethnicity', dem) +
+            '</table>';
+    });
+    return '<h2 style="' + DOC_H2S + '">${bb(c.title)}</h2>' +
+        (html || '<p style="'+DOC_BF+'color:#94a3b8;font-style:italic;">No contacts added.</p>');
+}`;
+                },
+                saveEntry(c, k) { return `contacts_${k}:collectContactData_${k}()`; },
+                restoreCode(c, k) { return [
+                    `if(s.contacts_${k}&&s.contacts_${k}.length){`,
+                    `  document.getElementById('contactRows_${k}').innerHTML='';`,
+                    `  contactRowCounter_${k}=0;`,
+                    `  s.contacts_${k}.forEach(d=>addContactRow_${k}(d));`,
+                    `}`
+                ]; },
+                progressCheck(c, k) {
+                    if (!c.required) return null;
+                    return `Array.from(document.querySelectorAll('#contactRows_${k} .c-name')).some(el=>el.value.trim())`;
+                },
+                validateCode(c, k) {
+                    if (!c.required) return [];
+                    return [`if(!Array.from(document.querySelectorAll('#contactRows_${k} .c-name')).some(el=>el.value.trim()))` +
+                        `missing.push('${bb(c.title)} (at least one contact with a name)');`];
+                },
+                metaCode(c, k) { return [
+                    `metaRows.push(['CONTACT_COUNT',String(document.querySelectorAll('#contactRows_${k} [id^="cr_${k}_"]').length)]);`,
+                    `metaRows.push(['CONTACT_NAMES',Array.from(document.querySelectorAll('#contactRows_${k} .c-name')).map(el=>el.value.trim()).filter(Boolean).join(', ')||'none']);`
+                ]; }
+            },
+
+            'url-field': {
+                fragment(c, k) {
+                    const fId = `urlField_${k}`;
+                    const heading = bb(c.title || c.label);
+                    return `
+function docSection_${k}() {
+    const v = document.getElementById('${fId}').value.trim();
+    return '<h2 style="' + DOC_H2S + '">${heading}</h2>' +
+        '<table style="width:100%;border-collapse:collapse;' + DOC_BF + '">' +
+        '<tr><td style="' + DOC_THS + '">${bb(c.label)}</td>' +
+        '<td style="' + DOC_TDS + '">' +
+        (v ? '<a href="' + escapeHtml(v) + '">' + escapeHtml(v) + '</a>'
+           : '<em style="color:#94a3b8;">Not provided</em>') +
+        '</td></tr></table>';
+}`;
+                },
+                saveEntry(c, k) { return `urlField_${k}:document.getElementById('urlField_${k}').value`; },
+                restoreCode(c, k) { return [
+                    `if(s.urlField_${k})document.getElementById('urlField_${k}').value=s.urlField_${k};`
+                ]; },
+                progressCheck(c, k) {
+                    if (!c.required) return null;
+                    return `!!(document.getElementById('urlField_${k}').value.trim())`;
+                },
+                validateCode(c, k) {
+                    if (!c.required) return [];
+                    return [`if(!document.getElementById('urlField_${k}').value.trim())missing.push('${bb(c.label)}');`];
+                },
+                metaCode(c, k) { return [
+                    `metaRows.push(['${bb(c.label||'URL').toUpperCase().replace(/\s+/g,'_')}',document.getElementById('urlField_${k}').value.trim()]);`
+                ]; }
+            },
+
+            'simple-text': {
+                fragment(c, k) {
+                    const fId = `textField_${k}`;
+                    const heading = bb(c.title || c.label);
+                    return `
+function docSection_${k}() {
+    const v = document.getElementById('${fId}').value.trim();
+    return '<h2 style="' + DOC_H2S + '">${heading}</h2>' +
+        '<p style="' + DOC_BF + 'margin:0 0 8px 0;">' + escapeHtml(v) + '</p>';
+}`;
+                },
+                saveEntry(c, k) { return `textField_${k}:document.getElementById('textField_${k}').value`; },
+                restoreCode(c, k) { return [
+                    `if(s.textField_${k})document.getElementById('textField_${k}').value=s.textField_${k};`
+                ]; },
+                progressCheck(c, k) {
+                    if (!c.required) return null;
+                    return `!!(document.getElementById('textField_${k}').value.trim())`;
+                },
+                validateCode(c, k) {
+                    if (!c.required) return [];
+                    return [`if(!document.getElementById('textField_${k}').value.trim())missing.push('${bb(c.label)}');`];
+                },
+                metaCode(c, k) { return [
+                    `metaRows.push(['${bb(c.label||'FIELD').toUpperCase().replace(/\s+/g,'_')}',document.getElementById('textField_${k}').value.trim()]);`
+                ]; }
+            },
+
+            'group-identity': {
+                fragment(c, k) {
+                    let docItems = '';
+                    if (c.showGroupNumber) {
+                        const lbl = String(c.groupNumberLabel || 'Group Number').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+                        docItems += `    var _gn=(document.getElementById('groupNum_${k}')?.value||'').trim();rows.push(['${lbl}',_gn?escapeHtml(_gn):'—']);\n`;
+                    }
+                    if (c.showTeamMembers) {
+                        const lbl = String(c.teamMembersLabel || 'Team Members').replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+                        docItems += `    var _tm=(document.getElementById('teamMembers_${k}')?.value||'').trim();rows.push(['${lbl}',_tm?escapeHtml(_tm).replace(/\\n/g,'<br>'):'—']);\n`;
+                    }
+                    if (!c.showGroupNumber && !c.showTeamMembers) return `function docSection_${k}(){return '';}`;
+                    return `
+function docSection_${k}() {
+    const rows = [];
+${docItems}    const trs = rows.map(r=>'<tr><td style="'+DOC_THS+'">'+r[0]+'</td><td style="'+DOC_TDS+'">'+r[1]+'</td></tr>').join('');
+    return trs ? '<h2 style="'+DOC_H2S+'">${bb(c.title)}</h2><table style="width:100%;border-collapse:collapse;">'+trs+'</table>' : '';
+}`;
+                },
+                saveEntry(c, k) {
+                    const parts = [];
+                    if (c.showGroupNumber)  parts.push(`'groupNum':document.getElementById('groupNum_${k}')?.value||''`);
+                    if (c.showTeamMembers)  parts.push(`'teamMembers':document.getElementById('teamMembers_${k}')?.value||''`);
+                    return parts.length ? `${k}_grp:{${parts.join(',')}}` : null;
+                },
+                restoreCode(c, k) {
+                    const stmts = [];
+                    if (c.showGroupNumber)  stmts.push(`if(s.${k}_grp&&s.${k}_grp['groupNum']!==undefined){const _r=document.getElementById('groupNum_${k}');if(_r)_r.value=s.${k}_grp['groupNum'];}`);
+                    if (c.showTeamMembers)  stmts.push(`if(s.${k}_grp&&s.${k}_grp['teamMembers']!==undefined){const _r=document.getElementById('teamMembers_${k}');if(_r)_r.value=s.${k}_grp['teamMembers'];}`);
+                    return stmts;
+                },
+                progressCheck(c, k) {
+                    if (!c.required) return null;
+                    const chks = [];
+                    if (c.showGroupNumber)  chks.push(`!!(document.getElementById('groupNum_${k}')?.value?.trim())`);
+                    if (c.showTeamMembers)  chks.push(`!!(document.getElementById('teamMembers_${k}')?.value?.trim())`);
+                    return chks.length ? chks.join('&&') : 'true';
+                },
+                validateCode(c, k) {
+                    if (!c.required) return [];
+                    const stmts = [];
+                    if (c.showGroupNumber)  stmts.push(`if(!document.getElementById('groupNum_${k}')?.value?.trim())missing.push('${bb(c.title)} — Group Number required');`);
+                    if (c.showTeamMembers)  stmts.push(`if(!document.getElementById('teamMembers_${k}')?.value?.trim())missing.push('${bb(c.title)} — Team Members required');`);
+                    return stmts;
+                },
+                metaCode(c, k) {
+                    const stmts = [];
+                    if (c.showGroupNumber)  stmts.push(`metaRows.push(['GROUP_NUMBER',(document.getElementById('groupNum_${k}')?.value||'').trim()]);`);
+                    if (c.showTeamMembers)  stmts.push(`metaRows.push(['TEAM_MEMBERS',(document.getElementById('teamMembers_${k}')?.value||'').trim().replace(/\\n/g,'; ')]);`);
+                    return stmts;
+                }
+            },
+
+            'grouped-checklist': {
+                fragment(c, k) {
+                    const jsEsc = s => String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                    let docCode = '';
+                    (c.groups || []).forEach(g => {
+                        docCode += `    parts.push('<tr><td colspan="2" style="'+ghs+'">${jsEsc(bb(g.label))}</td></tr>');\n`;
+                        (g.items || []).forEach(item => {
+                            const chkId = `chk_${k}_${g.id}_${item.id}`;
+                            const txt   = jsEsc(bb(item.text)) || '(no text)';
+                            docCode += `    parts.push('<tr><td style="'+cs+'">${txt}</td><td style="'+cs+(document.getElementById('${chkId}')?.checked?'color:#059669;font-weight:bold;':'color:#dc2626;')+'">'+(document.getElementById('${chkId}')?.checked?'Yes':'No')+'</td></tr>');\n`;
+                        });
+                    });
+                    return `
+function docSection_${k}() {
+    const cs  = 'border:1px solid #cbd5e1;padding:8px;vertical-align:top;font-family:Arial,sans-serif;font-size:13px;';
+    const ghs = cs + 'font-weight:bold;background:#f1f5f9;text-transform:uppercase;font-size:11px;letter-spacing:0.05em;';
+    const parts = [];
+${docCode}    return '<h2 style="' + DOC_H2S + '">${bb(c.title)}</h2>' +
+        '<table style="width:100%;border-collapse:collapse;">' +
+        '<thead><tr><th style="'+ghs+'">Item</th><th style="'+ghs+'width:80px;text-align:center;">Complete</th></tr></thead>' +
+        '<tbody>' + parts.join('') + '</tbody></table>';
+}`;
+                },
+                saveEntry(c, k) {
+                    const allIds = (c.groups || []).flatMap(g => (g.items || []).map(i => `chk_${k}_${g.id}_${i.id}`));
+                    if (!allIds.length) return null;
+                    const entries = allIds.map(id => `'${id}':!!(document.getElementById('${id}')?.checked)`).join(',');
+                    return `${k}_chk:{${entries}}`;
+                },
+                restoreCode(c, k) {
+                    const allIds = (c.groups || []).flatMap(g => (g.items || []).map(i => `chk_${k}_${g.id}_${i.id}`));
+                    return allIds.map(id =>
+                        `if(s.${k}_chk&&s.${k}_chk['${id}']!==undefined){const _r=document.getElementById('${id}');if(_r)_r.checked=s.${k}_chk['${id}'];}`
+                    );
+                },
+                progressCheck(c, k) {
+                    if (!c.required) return null;
+                    const allIds = (c.groups || []).flatMap(g => (g.items || []).map(i => `chk_${k}_${g.id}_${i.id}`));
+                    if (!allIds.length) return 'true';
+                    return `[${allIds.map(id => `'${id}'`).join(',')}].every(id=>{const e=document.getElementById(id);return e&&e.checked;})`;
+                },
+                validateCode(c, k) {
+                    if (!c.required) return [];
+                    const allIds = (c.groups || []).flatMap(g => (g.items || []).map(i => `chk_${k}_${g.id}_${i.id}`));
+                    if (!allIds.length) return [];
+                    return [
+                        `if(![${allIds.map(id => `'${id}'`).join(',')}].every(id=>{const e=document.getElementById(id);return e&&e.checked;}))` +
+                        `missing.push('${bb(c.title)} — not all items ticked');`
+                    ];
+                },
+                metaCode(c, k) {
+                    const allIds = (c.groups || []).flatMap(g => (g.items || []).map(i => `chk_${k}_${g.id}_${i.id}`));
+                    if (!allIds.length) return [];
+                    const key = bb(c.title).toUpperCase().replace(/\s+/g, '_');
+                    return [
+                        `metaRows.push(['${key}_COMPLETE',[${allIds.map(id => `'${id}'`).join(',')}].every(id=>{const e=document.getElementById(id);return e&&e.checked;})?'YES':'NO']);`
+                    ];
+                }
+            },
+
+            'feedback-targeting': {
+                fragment(c, k) {
+                    const jsEsc = s => String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                    const wcFns = (c.prompts || []).map(p => `
+function wcFb_${k}_${p.id}() {
+    const t = document.getElementById('fbText_${k}_${p.id}');
+    const d = document.getElementById('fbWc_${k}_${p.id}');
+    if (!t || !d) return;
+    const words = t.value.trim().replace(/\\u00a0/g, ' ').split(/\\s+/).filter(Boolean).length;
+    const max = ${p.maxWords};
+    d.textContent = words + ' / ' + max + ' words';
+    d.className = 'text-xs ' + (words > max ? 'font-bold text-red-500' : (words > max * 0.9 ? 'font-bold text-amber-500' : 'text-slate-400'));
+}`).join('\n');
+                    let docCode = '';
+                    (c.prompts || []).forEach(p => {
+                        const pt = jsEsc(bb(p.text));
+                        docCode += `    html += '<h3 style="font-family:Arial,sans-serif;font-size:14px;font-weight:bold;color:#334155;margin:12px 0 4px 0;">${pt}</h3>';\n`;
+                        docCode += `    html += '<p style="' + DOC_BF + 'margin:0 0 12px 0;">' + escapeHtml((document.getElementById('fbText_${k}_${p.id}')?.value || '').trim() || '—') + '</p>';\n`;
+                    });
+                    return `${wcFns}
+
+function docSection_${k}() {
+    let html = '<h2 style="' + DOC_H2S + '">${bb(c.title)}</h2>';
+${docCode}    return html;
+}`;
+                },
+                saveEntry(c, k) {
+                    const prompts = c.prompts || [];
+                    if (!prompts.length) return null;
+                    const entries = prompts.map(p => `'${p.id}':document.getElementById('fbText_${k}_${p.id}')?.value||''`).join(',');
+                    return `${k}_fb:{${entries}}`;
+                },
+                restoreCode(c, k) {
+                    return (c.prompts || []).map(p =>
+                        `if(s.${k}_fb&&s.${k}_fb['${p.id}']!==undefined){const _r=document.getElementById('fbText_${k}_${p.id}');if(_r){_r.value=s.${k}_fb['${p.id}'];wcFb_${k}_${p.id}();}}`
+                    );
+                },
+                progressCheck(c, k) {
+                    if (!c.required) return null;
+                    const allIds = (c.prompts || []).map(p => `fbText_${k}_${p.id}`);
+                    if (!allIds.length) return 'true';
+                    return `[${allIds.map(id => `'${id}'`).join(',')}].every(id=>{const e=document.getElementById(id);return e&&e.value.trim();})`;
+                },
+                validateCode(c, k) {
+                    if (!c.required) return [];
+                    const allIds = (c.prompts || []).map(p => `fbText_${k}_${p.id}`);
+                    if (!allIds.length) return [];
+                    return [
+                        `if(![${allIds.map(id => `'${id}'`).join(',')}].every(id=>{const e=document.getElementById(id);return e&&e.value.trim();}))` +
+                        `missing.push('${bb(c.title)} — not all prompts answered');`
+                    ];
+                },
+                metaCode(c, k) {
+                    const titleKey = bb(c.title).toUpperCase().replace(/\s+/g, '_');
+                    return (c.prompts || []).map(p =>
+                        `metaRows.push(['${titleKey}_${p.id.toUpperCase()}_WORDS',String((document.getElementById('fbText_${k}_${p.id}')?.value||'').trim().replace(/\\u00a0/g,' ').split(/\\s+/).filter(Boolean).length||0)]);`
+                    );
+                }
+            },
+
+            'ai-disclosure': {
+                fragment(c, k) {
+                    const mode  = c.mode || 'prohibited';
+                    const chkId = `aiChk_${k}`;
+                    const txtId = `aiText_${k}`;
+                    const wcId  = `aiWc_${k}`;
+                    let js = '';
+
+                    if (mode === 'required' || mode === 'optional') {
+                        js += `
+function wcAi_${k}() {
+    var t = document.getElementById('${txtId}');
+    var d = document.getElementById('${wcId}');
+    if (!t || !d) return;
+    var words = t.value.trim().replace(/\\u00a0/g, ' ').split(/\\s+/).filter(Boolean).length;
+    d.textContent = words + ' / 200 words';
+    d.className = 'text-xs ' + (words > 200 ? 'font-bold text-red-500' : (words > 180 ? 'font-bold text-amber-500' : 'text-slate-400'));
+}`;
+                    }
+
+                    if (mode === 'prohibited') {
+                        js += `
+function docSection_${k}() {
+    var declared = document.getElementById('${chkId}') && document.getElementById('${chkId}').checked ? 'YES' : 'NO';
+    return '<h2 style="' + DOC_H2S + '">${bb(c.title)}</h2>' +
+        '<table style="width:100%;border-collapse:collapse;">' +
+        '<tr><td style="' + DOC_THS + '">AI Policy</td><td style="' + DOC_TDS + '">Not permitted</td></tr>' +
+        '<tr><td style="' + DOC_THS + '">Declaration confirmed</td><td style="' + DOC_TDS + '">' + declared + '</td></tr>' +
+        '</table>';
+}`;
+                    } else if (mode === 'required') {
+                        js += `
+function docSection_${k}() {
+    var chk = document.getElementById('${chkId}');
+    var txt = document.getElementById('${txtId}');
+    var declared = chk && chk.checked ? 'YES' : 'NO';
+    var disclosure = txt ? txt.value.trim() : '';
+    return '<h2 style="' + DOC_H2S + '">${bb(c.title)}</h2>' +
+        '<table style="width:100%;border-collapse:collapse;">' +
+        '<tr><td style="' + DOC_THS + '">AI Policy</td><td style="' + DOC_TDS + '">Permitted — disclosure required</td></tr>' +
+        '<tr><td style="' + DOC_THS + '">AI Declared</td><td style="' + DOC_TDS + '">' + declared + '</td></tr>' +
+        '<tr><td style="' + DOC_THS + '">Disclosure</td><td style="' + DOC_TDS + '">' + (disclosure ? escapeHtml(disclosure) : '<em style="color:#94a3b8;">Not provided</em>') + '</td></tr>' +
+        '</table>';
+}`;
+                    } else {
+                        js += `
+function docSection_${k}() {
+    var chk = document.getElementById('${chkId}');
+    var txt = document.getElementById('${txtId}');
+    var declared = chk && chk.checked ? 'YES' : 'NO';
+    var disclosure = (chk && chk.checked && txt) ? txt.value.trim() : '';
+    return '<h2 style="' + DOC_H2S + '">${bb(c.title)}</h2>' +
+        '<table style="width:100%;border-collapse:collapse;">' +
+        '<tr><td style="' + DOC_THS + '">AI Policy</td><td style="' + DOC_TDS + '">Permitted — disclosure optional</td></tr>' +
+        '<tr><td style="' + DOC_THS + '">AI Declared</td><td style="' + DOC_TDS + '">' + declared + '</td></tr>' +
+        (disclosure ? '<tr><td style="' + DOC_THS + '">Disclosure</td><td style="' + DOC_TDS + '">' + escapeHtml(disclosure) + '</td></tr>' : '') +
+        '</table>';
+}`;
+                    }
+
+                    return js;
+                },
+
+                saveEntry(c, k) {
+                    const mode = c.mode || 'prohibited';
+                    if (mode === 'prohibited') {
+                        return `aiChk_${k}:!!(document.getElementById('aiChk_${k}')?.checked)`;
+                    }
+                    return `aiChk_${k}:!!(document.getElementById('aiChk_${k}')?.checked),aiText_${k}:document.getElementById('aiText_${k}')?.value||''`;
+                },
+
+                restoreCode(c, k) {
+                    const mode  = c.mode || 'prohibited';
+                    const stmts = [
+                        `if(s.aiChk_${k}!==undefined){var _ac=document.getElementById('aiChk_${k}');if(_ac)_ac.checked=s.aiChk_${k};}`
+                    ];
+                    if (mode === 'required') {
+                        stmts.push(
+                            `if(s.aiText_${k}!==undefined){var _at=document.getElementById('aiText_${k}');if(_at){_at.value=s.aiText_${k};wcAi_${k}();}}`
+                        );
+                    }
+                    if (mode === 'optional') {
+                        stmts.push(
+                            `if(s.aiText_${k}!==undefined){var _at=document.getElementById('aiText_${k}');if(_at){_at.value=s.aiText_${k};wcAi_${k}();}}`,
+                            `if(s.aiChk_${k}){var _aw=document.getElementById('aiText_${k}_wrap');if(_aw)_aw.classList.remove('hidden');}`
+                        );
+                    }
+                    return stmts;
+                },
+
+                progressCheck(c, k) {
+                    const mode = c.mode || 'prohibited';
+                    if (mode === 'prohibited') {
+                        return `!!(document.getElementById('aiChk_${k}')?.checked)`;
+                    }
+                    if (mode === 'required') {
+                        if (!c.required) return null;
+                        return `!!(document.getElementById('aiChk_${k}')?.checked)&&!!(document.getElementById('aiText_${k}')?.value.trim())`;
+                    }
+                    return null;
+                },
+
+                validateCode(c, k) {
+                    const mode = c.mode || 'prohibited';
+                    if (mode === 'prohibited') {
+                        return [`if(!document.getElementById('aiChk_${k}')?.checked)missing.push('${bb(c.title)} — declaration not confirmed');`];
+                    }
+                    if (mode === 'required' && c.required) {
+                        return [
+                            `if(!document.getElementById('aiChk_${k}')?.checked)missing.push('${bb(c.title)} — AI use declaration not made');`,
+                            `if(!(document.getElementById('aiText_${k}')?.value||'').trim())missing.push('${bb(c.title)} — disclosure text required');`
+                        ];
+                    }
+                    return [];
+                },
+
+                metaCode(c, k) {
+                    const mode = c.mode || 'prohibited';
+                    const rows = [
+                        `metaRows.push(['AI_MODE','${mode}']);`,
+                        `metaRows.push(['AI_DECLARED',document.getElementById('aiChk_${k}')?.checked?'YES':'NO']);`
+                    ];
+                    if (mode === 'required' || mode === 'optional') {
+                        rows.push(
+                            `metaRows.push(['AI_DISCLOSURE_WORDS',String((document.getElementById('aiText_${k}')?.value||'').trim().replace(/\\u00a0/g,' ').split(/\\s+/).filter(Boolean).length||0)]);`
+                        );
+                    }
+                    return rows;
+                }
+            },
+
+            'info-divider': {
+                fragment(c, k) {
+                    const h3s = 'font-family:Arial,sans-serif;font-size:14px;font-weight:bold;margin:20px 0 4px 0;color:#1e293b;';
+                    const ps  = 'font-family:Arial,sans-serif;font-size:13px;margin:0 0 8px 0;line-height:1.6;color:#374151;';
+                    const parts = [];
+                    if (c.title)    parts.push(JSON.stringify(`<h3 style="${h3s}">${bb(c.title)}</h3>`));
+                    if (c.subtitle) parts.push(JSON.stringify(`<p style="${ps}">${bb(c.subtitle)}</p>`));
+                    return `
+function docSection_${k}() {
+    return ${parts.length ? parts.join('+') : '""'};
+}`;
+                },
+                saveEntry(c, k)     { return null; },
+                restoreCode(c, k)   { return []; },
+                progressCheck(c, k) { return null; },
+                validateCode(c, k)  { return []; },
+                metaCode(c, k)      { return []; }
+            }
+        };
+
+        // ─── Helpers ──────────────────────────────────────────────────────────
+        // HTML-escape for attribute values in builder UI (not output generation)
+        function bb(str) {
+            return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        // ─── Init ─────────────────────────────────────────────────────────────
+        renderPalette();
+        if (!loadBuilderState()) {
+            blocks.push({ id: nextId++, type: 'student-identity', config: structuredClone(BLOCK_DEFS['student-identity'].defaultConfig) });
+        }
+        renderCanvas();
+        document.querySelectorAll('#cfg-title,#cfg-subtitle,#cfg-welcome,#cfg-moodle,#cfg-label')
+            .forEach(el => el.addEventListener('input', saveBuilderState));
+    </script>
+</body>
+</html>
