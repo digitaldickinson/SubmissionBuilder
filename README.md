@@ -62,4 +62,4 @@ of their submission.
 | **Info / Divider** | Staff‑written heading and guidance. No student input; not assessed. |
 
 The build number is shown next to the title in the builder header and is
-incremented on every change to `builder-builder.html` (currently **v1.9**).
+incremented on every change to `builder-builder.html` (currently **v1.10**).
