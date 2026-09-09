@@ -61,28 +61,5 @@ of their submission.
 | **AI Use Disclosure** | Configurable AI declaration — prohibited, permitted with structured disclosure, or optional disclosure. |
 | **Info / Divider** | Staff‑written heading and guidance. No student input; not assessed. |
 
-## Technical notes
-
-- **No build step, no backend.** `builder-builder.html` is the whole application.
-  Everything runs client‑side; nothing is uploaded anywhere.
-- Runtime dependencies are loaded from CDNs: Tailwind CSS for styling, and
-  [mammoth.js](https://github.com/mwilliamson/mammoth.js) in the generated forms
-  for reading `.docx` uploads.
-- Exported forms persist in‑progress work to `localStorage`, so a refresh or
-  crash doesn't lose a student's answers.
-- Builder schemas carry a `schemaVersion` field for future migration.
-
-## Repository contents
-
-| Path | Description |
-| --- | --- |
-| `builder-builder.html` | The tool. Open this to build forms. |
-| `assets/screenshot.png` | Screenshot used in this README. |
-
-Other working files in this folder are intentionally left untracked for now (see
-`.gitignore`).
-
-## Versioning
-
 The build number is shown next to the title in the builder header and is
 incremented on every change to `builder-builder.html` (currently **v1.9**).
