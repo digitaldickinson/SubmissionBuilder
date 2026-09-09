@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSNR2 - Portfolio submission builder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mammoth@1.12.0/mammoth.browser.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html-docx-js@0.3.1/dist/html-docx.js"></script>
+    <style>
+        body { font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; }
+        .input-std { width:100%; padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:14px; outline:none; transition:border-color 0.2s, box-shadow 0.2s; }
+        .input-std:focus { border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,0.1); }
+        .section-header { font-weight:700; color:#1e293b; text-transform:uppercase; letter-spacing:0.05em; font-size:0.9em; margin-bottom:12px; border-bottom:2px solid #e2e8f0; padding-bottom:8px; display:flex; align-items:center; gap:8px; }
+        .drop-zone { border:2px dashed #cbd5e1; border-radius:8px; padding:24px; text-align:center; transition:all 0.2s; background:#fff; cursor:pointer; }
+        .drop-zone:hover, .drop-zone.drag-over { border-color:#6366f1; background:#eef2ff; }
+        .drop-zone.loaded { border-color:#10b981; border-style:solid; background:#f0fdf4; }
+        .editor-toolbar { display:flex; gap:3px; flex-wrap:wrap; margin-bottom:6px; }
+        .editor-btn { padding:2px 7px; border:1px solid #e2e8f0; border-radius:5px; background:white; cursor:pointer; font-size:12px; color:#475569; line-height:1.6; white-space:nowrap; }
+        .editor-btn:hover { background:#f1f5f9; border-color:#cbd5e1; }
+        .editor-content { width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-size:14px; font-family:'Segoe UI',sans-serif; outline:none; transition:border-color 0.2s; overflow-y:auto; line-height:1.7; color:#1e293b; }
+        .editor-content:focus { border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,0.1); }
+        .editor-content:empty::before { content:attr(data-placeholder); color:#94a3b8; pointer-events:none; display:block; }
+        .editor-content h3 { font-size:15px; font-weight:bold; margin:10px 0 4px 0; color:#1e293b; }
+        .editor-content p { margin:0 0 8px 0; }
+        .editor-content a { color:#4338ca; text-decoration:underline; }
+        .editor-content--tall { min-height:256px; }
+        .editor-content--short { min-height:128px; }
+        .preview-panel { border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; }
+        .preview-panel-header { display:flex; justify-content:space-between; align-items:center; padding:8px 14px; background:#f8fafc; border-bottom:1px solid #e2e8f0; }
+        .preview-panel-body { padding:16px; max-height:280px; overflow-y:auto; font-size:13px; color:#334155; line-height:1.6; background:white; }
+        .wc-bar-track { position:relative; height:8px; background:#e2e8f0; border-radius:99px; overflow:visible; margin-top:8px; }
+        .wc-bar-fill { height:100%; border-radius:99px; transition:width 0.3s ease, background-color 0.3s ease; width:0%; background:#e2e8f0; }
+        .wc-bar-marker { position:absolute; top:-5px; bottom:-5px; width:2px; background:#94a3b8; border-radius:1px; pointer-events:none; }
+        .wc-bar-marker::after { content:attr(data-label); position:absolute; top:-18px; left:50%; transform:translateX(-50%); font-size:10px; color:#94a3b8; white-space:nowrap; font-family:'Segoe UI',sans-serif; }
+        .wc-bar-marker[data-left-pct="90.9"] { left: 90.9%; }
+        .wc-bar-marker[data-left-pct="90.9"] { left: 90.9%; }
+        #sidebarTracker { position:fixed; right:1.25rem; top:50%; transform:translateY(-50%); z-index:40; }
+        .sl-dot { width:14px; height:14px; border-radius:50%; flex-shrink:0; transition:background-color 0.3s, box-shadow 0.3s; }
+        .sl-dot--done { background:#10b981; box-shadow:0 0 0 3px rgba(16,185,129,0.2); }
+        .sl-dot--pending { background:#cbd5e1; }
+        .sl-line { width:2px; height:22px; transition:background-color 0.3s; }
+        .sl-line--done { background:#10b981; }
+        .sl-line--pending { background:#e2e8f0; }
+        .section-card { transition:background-color 0.4s ease, border-color 0.4s ease; }
+        .section-card.section-card--complete { background-color:#f0fdf4; border-color:#a7f3d0; }
+        #downloadModal { background:rgba(15,23,42,0.7); }
+    </style>
+</head>
+<body class="text-slate-800 p-4 md:p-8 flex justify-center">
+
+    
+    <div id="welcomeModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(15,23,42,0.7);">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8">
+            <div class="flex items-start gap-4 mb-5">
+                <div class="flex-shrink-0 bg-indigo-100 rounded-xl p-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#4338ca" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+                </div>
+                <div>
+                    <h2 class="text-xl font-bold text-slate-900">JSNR2 - Portfolio submission builder</h2>
+                    <p class="text-sm text-slate-500 mt-0.5">Assemble the elements for your JSNR2 submission</p>
+                </div>
+            </div>
+            <p class="text-sm text-slate-700 mb-6 leading-relaxed">This app pulls together the different elements of your JSNR2 submission and creates a single word document for submission.  This does not check or mark your work. You should still refer to the assessment brief on Moodle and check each requirement.</p>
+            <button type="button" onclick="document.getElementById('welcomeModal').remove()"
+                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl transition-colors text-sm">
+                Get started
+            </button>
+        </div>
+    </div>
+
+    <div id="sidebarTracker" class="hidden lg:flex flex-col items-end">
+        <div class="flex items-center gap-2"><span id="sl-label-0" class="text-xs font-semibold text-slate-400 text-right leading-tight">Your Details</span><div id="sl-dot-0" class="sl-dot sl-dot--pending"></div></div><div class="self-end w-3.5 flex justify-center"><div id="sl-line-0" class="sl-line sl-line--pending"></div></div>
+        <div class="flex items-center gap-2"><span id="sl-label-1" class="text-xs font-semibold text-slate-400 text-right leading-tight">Your orginal…</span><div id="sl-dot-1" class="sl-dot sl-dot--pending"></div></div><div class="self-end w-3.5 flex justify-center"><div id="sl-line-1" class="sl-line sl-line--pending"></div></div>
+        <div class="flex items-center gap-2"><span id="sl-label-2" class="text-xs font-semibold text-slate-400 text-right leading-tight">Contact Deta…</span><div id="sl-dot-2" class="sl-dot sl-dot--pending"></div></div><div class="self-end w-3.5 flex justify-center"><div id="sl-line-2" class="sl-line sl-line--pending"></div></div>
+        <div class="flex items-center gap-2"><span id="sl-label-3" class="text-xs font-semibold text-slate-400 text-right leading-tight">Reflective e…</span><div id="sl-dot-3" class="sl-dot sl-dot--pending"></div></div>
+    </div>
+
+    <div class="max-w-6xl w-full bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden relative">
+
+        <div class="bg-slate-900 text-white p-6 border-b border-slate-800 flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold">JSNR2 - PORTFOLIO SUBMISSION BUILDER</h1>
+                <p class="text-slate-400 text-sm mt-1">Assemble the elements for your JSNR2 submission</p>
+            </div>
+            <button type="button" onclick="generateDocument()"
+                class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-5 rounded-xl flex items-center gap-2 text-sm transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download .docx
+            </button>
+        </div>
+
+        <div class="lg:hidden px-6 py-3 border-b border-slate-100 bg-slate-50">
+            <div class="flex items-center justify-between mb-1.5">
+                <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">Progress</span>
+                <span id="progLabel" class="text-xs font-semibold text-slate-500">0 of 4 complete</span>
+            </div>
+            <div class="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                <div id="progBar" class="h-full bg-indigo-500 rounded-full transition-all duration-500" style="width:0%"></div>
+            </div>
+        </div>
+
+        <div id="validationBanner" class="hidden mx-6 mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p class="text-sm font-bold text-red-700 mb-1">Please complete the following before generating:</p>
+            <ul id="validationList" class="list-disc list-inside text-sm text-red-600 space-y-0.5"></ul>
+        </div>
+
+        <form id="submissionForm" class="p-6 md:p-8 space-y-8" onsubmit="return false;">
+            
+        <div id="section-0" class="section-card bg-slate-50 p-6 rounded-xl border border-slate-200">
+            <h2 class="section-header"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Your Details</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Full Name *</label>
+                    <input type="text" id="studentName" class="input-std" placeholder="Your full name" oninput="saveState(); updateProgress();">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">Student ID *</label>
+                    <input type="text" id="studentId" class="input-std" placeholder="e.g. 12345678" oninput="saveState(); updateProgress();">
+                </div>
+            </div>
+        </div>
+
+        <div id="section-1" class="section-card bg-slate-50 p-6 rounded-xl border border-slate-200">
+            <h2 class="section-header"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Your orginal news story</h2>
+            <p class="text-sm text-slate-500 mb-4 leading-relaxed">You can cut and paste your 500 word news story here, or if you have the story in a seperate word file, you can drop that word doc in here and it will be included in the submission.</p>
+        <div id="uploadZone_b2" class="drop-zone mb-3" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event,'uploadZone_b2')" ondrop="handleUploadDrop_b2(event)" onclick="document.getElementById('uploadInput_b2').click()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-2 text-slate-400"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <p class="text-sm font-semibold text-slate-500">Drop files here, or click to browse</p>
+            <p class="text-xs text-slate-400 mt-1">Accepts .doc or .docx &mdash; max 10 MB each &mdash; multiple files allowed</p>
+            <input type="file" id="uploadInput_b2" class="hidden" accept=".doc,.docx" aria-label="Upload document" multiple onchange="handleUploadFileSelect_b2(event)">
+        </div>
+        <div id="uploadErr_b2" class="hidden mb-2 text-sm text-red-600 font-semibold"></div>
+        <div id="uploadList_b2" class="space-y-2 mb-3"></div><div class="editor-toolbar"><button type="button" class="editor-btn font-bold" title="Bold" onmousedown="event.preventDefault()" onclick="formatDoc('bold')">B</button><button type="button" class="editor-btn italic" title="Italic" onmousedown="event.preventDefault()" onclick="formatDoc('italic')"><em>I</em></button><button type="button" class="editor-btn font-bold text-xs" title="Subheading" onmousedown="event.preventDefault()" onclick="formatDoc('h3')">H</button><button type="button" class="editor-btn" title="Insert hyperlink" onmousedown="event.preventDefault()" onclick="formatDoc('link')"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> Link</button></div>
+            <div id="editor_b2" contenteditable="true" class="editor-content editor-content--tall"
+                data-placeholder="Type or paste your content here..." oninput="updateWordCount_b2()"></div>
+            
+        <div class="mt-3">
+            <div class="wc-bar-track">
+                <div id="wcBar_b2" class="wc-bar-fill"></div>
+                <div class="wc-bar-marker" data-label="500" data-left-pct="90.9"></div>
+            </div>
+            <div id="wcDisplay_b2" class="mt-3 text-sm font-bold text-slate-400">0 words &mdash; target: 500&ndash;550</div>
+        </div>
+        </div>
+
+        <div id="section-2" class="section-card bg-slate-50 p-6 rounded-xl border border-slate-200">
+            <h2 class="section-header"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Contact Details</h2>
+            <p class="text-sm text-slate-500 mb-4 leading-relaxed">The assessment requires you to include at least two original interviews. if you have interviewed more people, you should include them here too.</p><p class="text-xs text-slate-500 mb-4">Add a row for each person interviewed or contacted.</p>
+            <div id="contactRows_b3" class="space-y-4"></div>
+            <button type="button" onclick="addContactRow_b3()"
+                class="mt-4 text-sm font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 border border-indigo-200 px-3 py-2 rounded-lg hover:bg-indigo-50 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add Interviewee
+            </button>
+        </div>
+
+        <div id="section-3" class="section-card bg-slate-50 p-6 rounded-xl border border-slate-200">
+            <h2 class="section-header"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Reflective essay </h2>
+            <p class="text-sm text-slate-500 mb-4 leading-relaxed">The brief asks you to complete a reflective essay outlining how you sourced the story, did your research, carried out interviews, collated information and quotes and wrote the story.  You can paste that here or drop in a word doc containing your reflection to include in the final doc, It should include references.</p>
+        <div id="uploadZone_b4" class="drop-zone mb-3" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event,'uploadZone_b4')" ondrop="handleUploadDrop_b4(event)" onclick="document.getElementById('uploadInput_b4').click()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-2 text-slate-400"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <p class="text-sm font-semibold text-slate-500">Drop files here, or click to browse</p>
+            <p class="text-xs text-slate-400 mt-1">Accepts .doc or .docx &mdash; max 10 MB each &mdash; multiple files allowed</p>
+            <input type="file" id="uploadInput_b4" class="hidden" accept=".doc,.docx" aria-label="Upload document" multiple onchange="handleUploadFileSelect_b4(event)">
+        </div>
+        <div id="uploadErr_b4" class="hidden mb-2 text-sm text-red-600 font-semibold"></div>
+        <div id="uploadList_b4" class="space-y-2 mb-3"></div><div class="editor-toolbar"><button type="button" class="editor-btn font-bold" title="Bold" onmousedown="event.preventDefault()" onclick="formatDoc('bold')">B</button><button type="button" class="editor-btn italic" title="Italic" onmousedown="event.preventDefault()" onclick="formatDoc('italic')"><em>I</em></button><button type="button" class="editor-btn font-bold text-xs" title="Subheading" onmousedown="event.preventDefault()" onclick="formatDoc('h3')">H</button><button type="button" class="editor-btn" title="Insert hyperlink" onmousedown="event.preventDefault()" onclick="formatDoc('link')"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> Link</button></div>
+            <div id="editor_b4" contenteditable="true" class="editor-content editor-content--tall"
+                data-placeholder="Type or paste your content here..." oninput="updateWordCount_b4()"></div>
+            
+        <div class="mt-3">
+            <div class="wc-bar-track">
+                <div id="wcBar_b4" class="wc-bar-fill"></div>
+                <div class="wc-bar-marker" data-label="1000" data-left-pct="90.9"></div>
+            </div>
+            <div id="wcDisplay_b4" class="mt-3 text-sm font-bold text-slate-400">0 words &mdash; target: 1000&ndash;1100</div>
+        </div>
+        </div>
+
+        <div class="section-card bg-slate-50 p-6 rounded-xl border border-slate-200">
+            <h2 class="section-header"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-600"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/></svg>Use of AI because of PLP</h2>
+            <p class="text-sm text-slate-500 mb-4 leading-relaxed">If you have been advised to use a specific tool as part of a personal learning plan you can note this and the scope of the use below.</p><label class="flex items-start gap-3 p-3 rounded-lg border border-slate-200 bg-white cursor-pointer hover:bg-slate-50 transition-colors mb-4">
+                <input type="checkbox" id="aiChk_b5" class="w-4 h-4 accent-indigo-600 flex-shrink-0 mt-0.5" onchange="saveState(); updateProgress();">
+                <span class="text-sm text-slate-700 leading-snug">Yes, I used AI in this submission</span>
+            </label>
+            <div>
+                <label class="block text-sm font-semibold text-slate-700 mb-2">Describe which tool(s) you used, what task(s) you applied them to, and what you changed or added to the output.</label>
+                <textarea id="aiText_b5" class="input-std resize-none" rows="3" placeholder="Write your response here..." oninput="wcAi_b5(); saveState(); updateProgress();"></textarea>
+                <div class="flex justify-end mt-1">
+                    <span id="aiWc_b5" class="text-xs text-slate-400">0 / 200 words</span>
+                </div>
+            </div>
+        </div>
+        </form>
+
+    </div>
+
+    <div id="downloadModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
+            <div class="flex items-start gap-4 mb-5">
+                <div class="flex-shrink-0 bg-emerald-100 rounded-xl p-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><polyline points="8 13 10 15 16 9"/></svg>
+                </div>
+                <div>
+                    <h2 class="text-xl font-bold text-slate-900">Document downloaded</h2>
+                    <p class="text-sm text-slate-500 mt-0.5">Check before uploading to Moodle</p>
+                </div>
+            </div>
+            
+            <a href="https://moodle.mmu.ac.uk/mod/coursework/view.php?id=4846645" target="_blank" rel="noopener"
+                class="mt-3 w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl transition-colors text-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 0 2 2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                Go to Moodle submission page
+            </a>
+            <button type="button" onclick="document.getElementById('downloadModal').classList.add('hidden');document.getElementById('downloadModal').classList.remove('flex');"
+                class="mt-3 w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl transition-colors text-sm">
+                Close
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const LS_KEY = 'bb_jsnrsubmissionbuilder';
+        const DOC_H2S = 'font-family:Arial,sans-serif;font-size:15px;font-weight:bold;text-transform:uppercase;letter-spacing:0.05em;border-bottom:2px solid #e2e8f0;padding-bottom:6px;margin:28px 0 10px 0;color:#1e293b;';
+        const DOC_THS = 'border:1px solid #cbd5e1;padding:8px;vertical-align:top;font-weight:bold;background:#f1f5f9;width:30%;font-family:Arial,sans-serif;font-size:13px;';
+        const DOC_TDS = 'border:1px solid #cbd5e1;padding:8px;vertical-align:top;font-family:Arial,sans-serif;font-size:13px;';
+        const DOC_BF  = 'font-family:Arial,sans-serif;font-size:13px;';
+
+        
+function docSection_b1() {
+    var n = document.getElementById('studentName').value.trim();
+    var i = document.getElementById('studentId').value.trim();
+    return '<h2 style="' + DOC_H2S + '">Your Details</h2>' +
+        '<table style="width:100%;border-collapse:collapse;' + DOC_BF + '">' +
+        '<tr><td style="' + DOC_THS + '">Full Name</td><td style="' + DOC_TDS + '">' + escapeHtml(n) + '</td></tr>' +
+        '<tr><td style="' + DOC_THS + '">Student ID</td><td style="' + DOC_TDS + '">' + escapeHtml(i) + '</td></tr>' +
+        '</table>';
+}
+
+let uploadFiles_b2 = [];
+function handleUploadDrop_b2(event) {
+    event.preventDefault();
+    document.getElementById('uploadZone_b2').classList.remove('drag-over');
+    Array.from(event.dataTransfer.files).forEach(f => loadUploadFile_b2(f));
+}
+function handleUploadFileSelect_b2(event) {
+    Array.from(event.target.files).forEach(f => loadUploadFile_b2(f));
+    event.target.value = '';
+}
+async function loadUploadFile_b2(file) {
+    const errEl = document.getElementById('uploadErr_b2'); errEl.classList.add('hidden');
+    try {
+        const html = await processFile(file);
+        uploadFiles_b2.push({ name: file.name, html });
+        renderUploadList_b2();
+        updateProgress();
+    } catch(e) { errEl.textContent = e.message; errEl.classList.remove('hidden'); }
+}
+function renderUploadList_b2() {
+    const container = document.getElementById('uploadList_b2');
+    if (!uploadFiles_b2.length) { container.innerHTML = ''; return; }
+    const docIco = '<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z\"/><polyline points=\"14 2 14 8 20 8\"/></svg>';
+    const xIco   = '<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><line x1=\"18\" y1=\"6\" x2=\"6\" y2=\"18\"/><line x1=\"6\" y1=\"6\" x2=\"18\" y2=\"18\"/></svg>';
+    container.innerHTML = uploadFiles_b2.map((f, i) =>
+        '<div class=\"rounded-lg border border-emerald-200 bg-emerald-50 overflow-hidden\">' +
+            '<div class=\"flex items-center gap-2 px-3 py-2\">' +
+                '<span class=\"text-emerald-500 flex-shrink-0\">' + docIco + '</span>' +
+                '<span class=\"flex-1 text-sm font-semibold text-emerald-700 truncate\">' + escapeHtml(f.name) + '</span>' +
+                '<button type=\"button\" onclick=\"toggleUploadPreview_b2(' + i + ')\" class=\"text-xs font-semibold text-indigo-600 hover:text-indigo-800 px-2 py-0.5 flex-shrink-0\">Preview</button>' +
+                '<button type=\"button\" onclick=\"removeUpload_b2(' + i + ')\" class=\"text-slate-300 hover:text-red-500 transition-colors p-1 flex-shrink-0\" title=\"Remove\">' + xIco + '</button>' +
+            '</div>' +
+            '<div id=\"uploadPreview_b2_' + i + '\" class=\"hidden border-t border-emerald-100 p-4 bg-white text-sm leading-relaxed max-h-60 overflow-y-auto\">' + f.html + '</div>' +
+        '</div>'
+    ).join('');
+}
+function toggleUploadPreview_b2(i) {
+    const el = document.getElementById('uploadPreview_b2_' + i);
+    if (el) el.classList.toggle('hidden');
+}
+function removeUpload_b2(i) {
+    uploadFiles_b2.splice(i, 1);
+    renderUploadList_b2();
+    updateProgress();
+    saveState();
+}
+function updateWordCount_b2() {
+    const text  = (document.getElementById('editor_b2').innerText || '').replace(/\u00a0/g, ' ').trim();
+    const count = text ? text.split(/\s+/).filter(w => w.length > 0).length : 0;
+    const bar   = document.getElementById('wcBar_b2');
+    const label = document.getElementById('wcDisplay_b2');
+    const wcMin = 500, wcMax = 550;
+    const pct = Math.min(count / wcMax * 100, 100);
+    bar.style.width = pct + '%';
+    if (count === 0) {
+        bar.style.background = '#e2e8f0'; label.className = 'mt-3 text-sm font-bold text-slate-400';
+        label.textContent = '0 words \u2014 target: ' + wcMin + '\u2013' + wcMax;
+    } else if (count >= wcMin && count <= wcMax) {
+        bar.style.background = '#10b981'; label.className = 'mt-3 text-sm font-bold text-emerald-600';
+        label.textContent = count + ' words \u2713';
+    } else if (count > wcMax) {
+        bar.style.background = '#f87171'; label.className = 'mt-3 text-sm font-bold text-red-500';
+        label.textContent = count + ' words \u2014 ' + (count - wcMax) + ' over the limit';
+    } else {
+        bar.style.background = '#fbbf24'; label.className = 'mt-3 text-sm font-bold text-amber-500';
+        label.textContent = count + ' words \u2014 ' + (wcMin - count) + ' more to reach minimum';
+    }
+    updateProgress(); saveState();
+}
+function docSection_b2() {
+    const parts = [];
+    uploadFiles_b2.forEach((f, i) => { if (i > 0) parts.push('<div style="page-break-before:always;"></div>'); parts.push(f.html); });
+    
+    const edHtml = document.getElementById('editor_b2').innerHTML;
+    const edText = (document.getElementById('editor_b2').innerText || '').trim();
+    if (edText) parts.push('<div style="' + DOC_BF + '">' + styleEditorHtml(edHtml) + '</div>');
+    return '<h2 style="' + DOC_H2S + '">Your orginal news story</h2>' + parts.join('');
+}
+
+let contactRowCounter_b3 = 0;
+function addContactRow_b3(data) {
+    contactRowCounter_b3++;
+    const n  = contactRowCounter_b3;
+    const id = 'cr_b3_' + n;
+    const ea  = v => escapeAttr(v || '');
+    const sel = (v, o) => v === o ? ' selected' : '';
+    const d   = data || {};
+    const container = document.getElementById('contactRows_b3');
+    const row = document.createElement('div');
+    row.id = id; row.className = 'bg-white rounded-lg border border-slate-200 p-4';
+    row.innerHTML =
+        '<div class="flex justify-between items-center mb-3">' +
+            '<span class="text-xs font-bold text-slate-500 uppercase">Interviewee ' + n + '</span>' +
+            '<button type="button" onclick="removeContactRow_b3(\'' + id + '\')" class="text-slate-300 hover:text-red-500 transition-colors p-1">' +
+                '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' +
+            '</button></div>' +
+        '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">' +
+            '<div><label class="block text-xs font-bold text-slate-500 mb-1">Name</label>' +
+                '<input type="text" class="input-std c-name" placeholder="Full name" oninput="saveState();updateProgress();" value="' + ea(d.name) + '"></div>' +
+            '<div><label class="block text-xs font-bold text-slate-500 mb-1">Organisation Name</label>' +
+                '<input type="text" class="input-std c-org" placeholder="e.g. Manchester City Council" oninput="saveState();" value="' + ea(d.org) + '"></div>' +
+            '<div><label class="block text-xs font-bold text-slate-500 mb-1">Role / Job Title</label>' +
+                '<input type="text" class="input-std c-role" placeholder="e.g. Director of Communications" oninput="saveState();" value="' + ea(d.role) + '"></div>' +
+            '<div><label class="block text-xs font-bold text-slate-500 mb-1">Address</label>' +
+                '<input type="text" class="input-std c-address" placeholder="Address" oninput="saveState();" value="' + ea(d.address) + '"></div>' +
+            '<div><label class="block text-xs font-bold text-slate-500 mb-1">Contact Number</label>' +
+                '<input type="text" class="input-std c-phone" placeholder="Phone number" oninput="saveState();" value="' + ea(d.phone) + '"></div>' +
+            '<div><label class="block text-xs font-bold text-slate-500 mb-1">Email</label>' +
+                '<input type="email" class="input-std c-email" placeholder="email@example.com" oninput="saveState();" value="' + ea(d.email) + '"></div>' +
+            '<div><label class="block text-xs font-bold text-slate-500 mb-1">Purpose / Relationship</label>' +
+                '<select class="input-std c-purpose" onchange="saveState();">' +
+                    '<option value="">\u2014 Select role \u2014</option>' +
+                    '<option value="Expert / Academic"' + sel(d.purpose,'Expert / Academic') + '>Expert / Academic</option>' +
+                    '<option value="Institution/Organisation"' + sel(d.purpose,'Institution/Organisation') + '>Institution/Organisation</option>' +
+                    '<option value="Eyewitness / Directly affected"' + sel(d.purpose,'Eyewitness / Directly affected') + '>Eyewitness / Directly affected</option>' +
+                    '<option value="Vox pop / Community voice"' + sel(d.purpose,'Vox pop / Community voice') + '>Vox pop / Community voice</option>' +
+                    '<option value="Other"' + sel(d.purpose,'Other') + '>Other</option>' +
+                '</select></div>' +
+            '<div><label class="block text-xs font-bold text-slate-500 mb-1">Age</label>' +
+                '<input type="text" class="input-std c-age" placeholder="e.g. 34" oninput="saveState();" value="' + ea(d.age) + '"></div>' +
+            '<div><label class="block text-xs font-bold text-slate-500 mb-1">Gender</label>' +
+                '<input type="text" class="input-std c-gender" placeholder="e.g. Female" oninput="saveState();" value="' + ea(d.gender) + '"></div>' +
+            '<div><label class="block text-xs font-bold text-slate-500 mb-1">Ethnicity</label>' +
+                '<input type="text" class="input-std c-ethnicity" placeholder="e.g. White British" oninput="saveState();" value="' + ea(d.ethnicity) + '"></div>' +
+        '</div>';
+    container.appendChild(row);
+}
+function removeContactRow_b3(id) {
+    const el = document.getElementById(id);
+    if (el) { el.remove(); saveState(); updateProgress(); }
+}
+function collectContactData_b3() {
+    const rows = [];
+    document.querySelectorAll('#contactRows_b3 [id^="cr_b3_"]').forEach(row => {
+        rows.push({
+            name:      row.querySelector('.c-name')?.value  || '',
+            org:       row.querySelector('.c-org')?.value   || '',
+            role:      row.querySelector('.c-role')?.value  || '',
+            address:   row.querySelector('.c-address')?.value || '',
+            phone:     row.querySelector('.c-phone')?.value   || '',
+            email:     row.querySelector('.c-email')?.value   || '',
+            purpose:   row.querySelector('.c-purpose')?.value || '',
+            age:       row.querySelector('.c-age')?.value     || '',
+            gender:    row.querySelector('.c-gender')?.value  || '',
+            ethnicity: row.querySelector('.c-ethnicity')?.value || ''
+        });
+    });
+    return rows;
+}
+function docSection_b3() {
+    const cs  = 'border:1px solid #cbd5e1;padding:8px;vertical-align:top;font-family:Arial,sans-serif;font-size:13px;';
+    const ths = cs + 'font-weight:bold;background:#f1f5f9;width:35%;';
+    const r   = (label, val) => val ? '<tr><td style="'+ths+'">'+label+'</td><td style="'+cs+'">'+escapeHtml(val)+'</td></tr>' : '';
+    let html  = '';
+    let idx   = 0;
+    document.querySelectorAll('#contactRows_b3 [id^="cr_b3_"]').forEach(row => {
+        idx++;
+        const n   = row.querySelector('.c-name')?.value     || '';
+        const org = row.querySelector('.c-org')?.value      || '';
+        const rol = row.querySelector('.c-role')?.value     || '';
+        const a   = row.querySelector('.c-address')?.value  || '';
+        const ph  = row.querySelector('.c-phone')?.value    || '';
+        const em  = row.querySelector('.c-email')?.value    || '';
+        const pu  = row.querySelector('.c-purpose')?.value  || '';
+        const dem = [row.querySelector('.c-age')?.value||'', row.querySelector('.c-gender')?.value||'', row.querySelector('.c-ethnicity')?.value||''].filter(Boolean).join(' / ');
+        const h3s = 'font-family:Arial,sans-serif;font-size:13px;font-weight:bold;margin:' + (idx > 1 ? '16px' : '8px') + ' 0 4px 0;color:#1e293b;';
+        html += '<p style="'+h3s+'">Contact ' + idx + (n ? ': ' + escapeHtml(n) : '') + '</p>' +
+            '<table style="width:100%;border-collapse:collapse;">' +
+            r('Name', n) + r('Organisation', org) + r('Role / Job Title', rol) +
+            r('Address', a) + r('Contact Number', ph) + r('Email', em) +
+            r('Purpose / Relationship', pu) + r('Age / Gender / Ethnicity', dem) +
+            '</table>';
+    });
+    return '<h2 style="' + DOC_H2S + '">Contact Details</h2>' +
+        (html || '<p style="'+DOC_BF+'color:#94a3b8;font-style:italic;">No contacts added.</p>');
+}
+
+let uploadFiles_b4 = [];
+function handleUploadDrop_b4(event) {
+    event.preventDefault();
+    document.getElementById('uploadZone_b4').classList.remove('drag-over');
+    Array.from(event.dataTransfer.files).forEach(f => loadUploadFile_b4(f));
+}
+function handleUploadFileSelect_b4(event) {
+    Array.from(event.target.files).forEach(f => loadUploadFile_b4(f));
+    event.target.value = '';
+}
+async function loadUploadFile_b4(file) {
+    const errEl = document.getElementById('uploadErr_b4'); errEl.classList.add('hidden');
+    try {
+        const html = await processFile(file);
+        uploadFiles_b4.push({ name: file.name, html });
+        renderUploadList_b4();
+        updateProgress();
+    } catch(e) { errEl.textContent = e.message; errEl.classList.remove('hidden'); }
+}
+function renderUploadList_b4() {
+    const container = document.getElementById('uploadList_b4');
+    if (!uploadFiles_b4.length) { container.innerHTML = ''; return; }
+    const docIco = '<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z\"/><polyline points=\"14 2 14 8 20 8\"/></svg>';
+    const xIco   = '<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><line x1=\"18\" y1=\"6\" x2=\"6\" y2=\"18\"/><line x1=\"6\" y1=\"6\" x2=\"18\" y2=\"18\"/></svg>';
+    container.innerHTML = uploadFiles_b4.map((f, i) =>
+        '<div class=\"rounded-lg border border-emerald-200 bg-emerald-50 overflow-hidden\">' +
+            '<div class=\"flex items-center gap-2 px-3 py-2\">' +
+                '<span class=\"text-emerald-500 flex-shrink-0\">' + docIco + '</span>' +
+                '<span class=\"flex-1 text-sm font-semibold text-emerald-700 truncate\">' + escapeHtml(f.name) + '</span>' +
+                '<button type=\"button\" onclick=\"toggleUploadPreview_b4(' + i + ')\" class=\"text-xs font-semibold text-indigo-600 hover:text-indigo-800 px-2 py-0.5 flex-shrink-0\">Preview</button>' +
+                '<button type=\"button\" onclick=\"removeUpload_b4(' + i + ')\" class=\"text-slate-300 hover:text-red-500 transition-colors p-1 flex-shrink-0\" title=\"Remove\">' + xIco + '</button>' +
+            '</div>' +
+            '<div id=\"uploadPreview_b4_' + i + '\" class=\"hidden border-t border-emerald-100 p-4 bg-white text-sm leading-relaxed max-h-60 overflow-y-auto\">' + f.html + '</div>' +
+        '</div>'
+    ).join('');
+}
+function toggleUploadPreview_b4(i) {
+    const el = document.getElementById('uploadPreview_b4_' + i);
+    if (el) el.classList.toggle('hidden');
+}
+function removeUpload_b4(i) {
+    uploadFiles_b4.splice(i, 1);
+    renderUploadList_b4();
+    updateProgress();
+    saveState();
+}
+function updateWordCount_b4() {
+    const text  = (document.getElementById('editor_b4').innerText || '').replace(/\u00a0/g, ' ').trim();
+    const count = text ? text.split(/\s+/).filter(w => w.length > 0).length : 0;
+    const bar   = document.getElementById('wcBar_b4');
+    const label = document.getElementById('wcDisplay_b4');
+    const wcMin = 1000, wcMax = 1100;
+    const pct = Math.min(count / wcMax * 100, 100);
+    bar.style.width = pct + '%';
+    if (count === 0) {
+        bar.style.background = '#e2e8f0'; label.className = 'mt-3 text-sm font-bold text-slate-400';
+        label.textContent = '0 words \u2014 target: ' + wcMin + '\u2013' + wcMax;
+    } else if (count >= wcMin && count <= wcMax) {
+        bar.style.background = '#10b981'; label.className = 'mt-3 text-sm font-bold text-emerald-600';
+        label.textContent = count + ' words \u2713';
+    } else if (count > wcMax) {
+        bar.style.background = '#f87171'; label.className = 'mt-3 text-sm font-bold text-red-500';
+        label.textContent = count + ' words \u2014 ' + (count - wcMax) + ' over the limit';
+    } else {
+        bar.style.background = '#fbbf24'; label.className = 'mt-3 text-sm font-bold text-amber-500';
+        label.textContent = count + ' words \u2014 ' + (wcMin - count) + ' more to reach minimum';
+    }
+    updateProgress(); saveState();
+}
+function docSection_b4() {
+    const parts = [];
+    uploadFiles_b4.forEach((f, i) => { if (i > 0) parts.push('<div style="page-break-before:always;"></div>'); parts.push(f.html); });
+    
+    const edHtml = document.getElementById('editor_b4').innerHTML;
+    const edText = (document.getElementById('editor_b4').innerText || '').trim();
+    if (edText) parts.push('<div style="' + DOC_BF + '">' + styleEditorHtml(edHtml) + '</div>');
+    return '<h2 style="' + DOC_H2S + '">Reflective essay </h2>' + parts.join('');
+}
+
+function wcAi_b5() {
+    var t = document.getElementById('aiText_b5');
+    var d = document.getElementById('aiWc_b5');
+    if (!t || !d) return;
+    var words = t.value.trim().replace(/\u00a0/g, ' ').split(/\s+/).filter(Boolean).length;
+    d.textContent = words + ' / 200 words';
+    d.className = 'text-xs ' + (words > 200 ? 'font-bold text-red-500' : (words > 180 ? 'font-bold text-amber-500' : 'text-slate-400'));
+}
+function docSection_b5() {
+    var chk = document.getElementById('aiChk_b5');
+    var txt = document.getElementById('aiText_b5');
+    var declared = chk && chk.checked ? 'YES' : 'NO';
+    var disclosure = txt ? txt.value.trim() : '';
+    return '<h2 style="' + DOC_H2S + '">Use of AI because of PLP</h2>' +
+        '<table style="width:100%;border-collapse:collapse;">' +
+        '<tr><td style="' + DOC_THS + '">AI Policy</td><td style="' + DOC_TDS + '">Permitted — disclosure required</td></tr>' +
+        '<tr><td style="' + DOC_THS + '">AI Declared</td><td style="' + DOC_TDS + '">' + declared + '</td></tr>' +
+        '<tr><td style="' + DOC_THS + '">Disclosure</td><td style="' + DOC_TDS + '">' + (disclosure ? escapeHtml(disclosure) : '<em style="color:#94a3b8;">Not provided</em>') + '</td></tr>' +
+        '</table>';
+}
+
+        function escapeHtml(str) {
+            return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+        }
+        function escapeAttr(str) {
+            return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+        }
+        function textToHtmlParagraphs(str) {
+            if (!str||!str.trim()) return '';
+            return str.split(/\n[ \t]*\n/).filter(b=>b.trim()).map(b=>'<p style="margin:0 0 10px 0;">'+escapeHtml(b.trim()).replace(/\n/g,'<br>')+'</p>').join('');
+        }
+        function styleEditorHtml(html) {
+            const doc = new DOMParser().parseFromString(html,'text/html');
+            doc.querySelectorAll('h3').forEach(el=>{el.style.cssText='font-family:Arial,sans-serif;font-size:15px;font-weight:bold;margin:14px 0 5px 0;color:#1e293b;';});
+            doc.querySelectorAll('h2').forEach(el=>{el.style.cssText='font-family:Arial,sans-serif;font-size:16px;font-weight:bold;margin:16px 0 6px 0;color:#1e293b;';});
+            doc.querySelectorAll('p').forEach(el=>{el.style.cssText='font-family:Arial,sans-serif;font-size:13px;margin:0 0 9px 0;line-height:1.6;';});
+            doc.querySelectorAll('a').forEach(el=>{el.style.cssText='color:#4338ca;';});
+            doc.querySelectorAll('b,strong').forEach(el=>{el.style.fontWeight='bold';});
+            doc.querySelectorAll('i,em').forEach(el=>{el.style.fontStyle='italic';});
+            return doc.body.innerHTML;
+        }
+        function formatDoc(command) {
+            if (command==='h3') {
+                const sel=window.getSelection(); let inH3=false;
+                if (sel&&sel.anchorNode){const node=sel.anchorNode.nodeType===3?sel.anchorNode.parentElement:sel.anchorNode;inH3=!!node.closest('h3');}
+                document.execCommand('formatBlock',false,inH3?'p':'h3'); return;
+            }
+            if (command==='link'){const url=prompt('Enter URL:');if(url&&url.trim())document.execCommand('createLink',false,url.trim());return;}
+            document.execCommand(command);
+        }
+        function handleDragOver(event){event.preventDefault();event.currentTarget.classList.add('drag-over');}
+        function handleDragLeave(event,zoneId){if(!event.currentTarget.contains(event.relatedTarget))document.getElementById(zoneId).classList.remove('drag-over');}
+        const MAX_FILE_SIZE=10*1024*1024;
+        async function processFile(file) {
+            if(file.size>MAX_FILE_SIZE)throw new Error('"'+file.name+'" is too large. Maximum file size is 10 MB.');
+            const ext=file.name.split('.').pop().toLowerCase();
+            if(ext==='docx'){const ab=await file.arrayBuffer();const r=await mammoth.convertToHtml({arrayBuffer:ab});return r.value;}
+            if(ext==='doc'){const raw=await file.text();const m=raw.replace(/^\uFEFF/,'').match(/<body[^>]*>([\s\S]*)<\/body>/i);return m?m[1]:raw;}
+            throw new Error('Unsupported file type: .'+ext+'. Please use .doc or .docx.');
+        }
+        function buildMetadataSection(rows) {
+            const mThS='border:1px solid #e2e8f0;padding:5px 8px;font-weight:bold;background:#f8fafc;width:40%;font-size:11px;font-family:Arial,sans-serif;';
+            const mTdS='border:1px solid #e2e8f0;padding:5px 8px;font-size:11px;font-family:Arial,sans-serif;';
+            const h2M='font-family:Arial,sans-serif;font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;border-bottom:1px solid #e2e8f0;padding-bottom:4px;margin:40px 0 8px 0;page-break-before:always;';
+            const meta='font-family:Arial,sans-serif;font-size:11px;color:#94a3b8;';
+            const trs=rows.map(r=>'<tr><td style="'+mThS+'">'+r[0]+'</td><td style="'+mTdS+'">'+escapeHtml(String(r[1]))+'</td></tr>').join('');
+            return '<h2 style="'+h2M+'">__SUBMISSION_DATA__</h2><p style="'+meta+'">Machine-readable metadata — do not edit.</p><table style="width:100%;border-collapse:collapse;">'+trs+'</table>';
+        }
+        function saveState() {
+            try { localStorage.setItem(LS_KEY, JSON.stringify({ studentName:document.getElementById('studentName').value,studentId:document.getElementById('studentId').value,
+            b2_editor:document.getElementById('editor_b2').innerHTML,
+            contacts_b3:collectContactData_b3(),
+            b4_editor:document.getElementById('editor_b4').innerHTML,
+            aiChk_b5:!!(document.getElementById('aiChk_b5')?.checked),aiText_b5:document.getElementById('aiText_b5')?.value||'' })); } catch(e) {}
+        }
+        function restoreState() {
+            try {
+                const raw=localStorage.getItem(LS_KEY); if(!raw) return;
+                const s=JSON.parse(raw);
+                if(s.studentName)document.getElementById('studentName').value=s.studentName;
+            if(s.studentId)document.getElementById('studentId').value=s.studentId;
+            if(s.b2_editor){document.getElementById('editor_b2').innerHTML=s.b2_editor;updateWordCount_b2();}
+            if(s.contacts_b3&&s.contacts_b3.length){
+              document.getElementById('contactRows_b3').innerHTML='';
+              contactRowCounter_b3=0;
+              s.contacts_b3.forEach(d=>addContactRow_b3(d));
+            }
+            if(s.b4_editor){document.getElementById('editor_b4').innerHTML=s.b4_editor;updateWordCount_b4();}
+            if(s.aiChk_b5!==undefined){var _ac=document.getElementById('aiChk_b5');if(_ac)_ac.checked=s.aiChk_b5;}
+            if(s.aiText_b5!==undefined){var _at=document.getElementById('aiText_b5');if(_at){_at.value=s.aiText_b5;wcAi_b5();}}
+            } catch(e) {}
+        }
+        function updateProgress() {
+            const checks=[
+                !!(document.getElementById('studentName').value.trim())&&!!(document.getElementById('studentId').value.trim()),
+                (uploadFiles_b2.length > 0 || !!(document.getElementById('editor_b2').innerText||'').trim()),
+                Array.from(document.querySelectorAll('#contactRows_b3 .c-name')).some(el=>el.value.trim()),
+                (uploadFiles_b4.length > 0 || !!(document.getElementById('editor_b4').innerText||'').trim())
+            ];
+            const total=checks.length, complete=checks.filter(Boolean).length;
+            checks.forEach((done,i)=>{
+                const dot=document.getElementById('sl-dot-'+i);
+                const lbl=document.getElementById('sl-label-'+i);
+                const line=document.getElementById('sl-line-'+i);
+                const card=document.getElementById('section-'+i);
+                if(dot) dot.className ='sl-dot ' +(done?'sl-dot--done':'sl-dot--pending');
+                if(lbl) lbl.className ='text-xs font-semibold text-right leading-tight '+(done?'text-emerald-600':'text-slate-400');
+                if(line)line.className='sl-line '+(done?'sl-line--done':'sl-line--pending');
+                if(card)card.classList.toggle('section-card--complete',done);
+            });
+            const bar=document.getElementById('progBar'), lbl=document.getElementById('progLabel');
+            if(bar) bar.style.width=(total?Math.round(complete/total*100):0)+'%';
+            if(lbl) lbl.textContent=complete+' of '+total+' complete';
+        }
+        function validate() {
+            const missing=[];
+            if(!document.getElementById('studentName').value.trim())missing.push('Student Name');
+            if(!document.getElementById('studentId').value.trim())missing.push('Student ID');
+            if(uploadFiles_b2.length === 0 && !(document.getElementById('editor_b2').innerText||'').trim())missing.push('Your orginal news story');
+            if(!Array.from(document.querySelectorAll('#contactRows_b3 .c-name')).some(el=>el.value.trim()))missing.push('Contact Details (at least one contact with a name)');
+            if(uploadFiles_b4.length === 0 && !(document.getElementById('editor_b4').innerText||'').trim())missing.push('Reflective essay ');
+            const banner=document.getElementById('validationBanner'), list=document.getElementById('validationList');
+            if(missing.length>0){list.innerHTML=missing.map(m=>'<li>'+escapeHtml(m)+'</li>').join('');banner.classList.remove('hidden');banner.scrollIntoView({behavior:'smooth',block:'nearest'});return false;}
+            banner.classList.add('hidden'); return true;
+        }
+        function generateDocument() {
+            if(!validate()) return;
+            const metaRows=[];
+            metaRows.push(['STUDENT_NAME',document.getElementById('studentName').value.trim()]);
+            metaRows.push(['STUDENT_ID',document.getElementById('studentId').value.trim()]);
+            metaRows.push(['SUBMISSION_DATE',new Date().toLocaleDateString('en-GB')]);
+            metaRows.push(['GENERATION_TIME',new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})]);
+            metaRows.push(['YOUR_ORGINAL_NEWS_STORY_WORD_COUNT',String((document.getElementById('editor_b2').innerText||'').replace(/\u00a0/g,' ').trim().split(/\s+/).filter(w=>w.length>0).length)]);
+            metaRows.push(['YOUR_ORGINAL_NEWS_STORY_UPLOADS',String(uploadFiles_b2.length)]);
+            metaRows.push(['YOUR_ORGINAL_NEWS_STORY_FILENAMES',uploadFiles_b2.map(f=>f.name).join(', ')||'none']);
+            metaRows.push(['CONTACT_COUNT',String(document.querySelectorAll('#contactRows_b3 [id^="cr_b3_"]').length)]);
+            metaRows.push(['CONTACT_NAMES',Array.from(document.querySelectorAll('#contactRows_b3 .c-name')).map(el=>el.value.trim()).filter(Boolean).join(', ')||'none']);
+            metaRows.push(['REFLECTIVE_ESSAY__WORD_COUNT',String((document.getElementById('editor_b4').innerText||'').replace(/\u00a0/g,' ').trim().split(/\s+/).filter(w=>w.length>0).length)]);
+            metaRows.push(['REFLECTIVE_ESSAY__UPLOADS',String(uploadFiles_b4.length)]);
+            metaRows.push(['REFLECTIVE_ESSAY__FILENAMES',uploadFiles_b4.map(f=>f.name).join(', ')||'none']);
+            metaRows.push(['AI_MODE','required']);
+            metaRows.push(['AI_DECLARED',document.getElementById('aiChk_b5')?.checked?'YES':'NO']);
+            metaRows.push(['AI_DISCLOSURE_WORDS',String((document.getElementById('aiText_b5')?.value||'').trim().replace(/\u00a0/g,' ').split(/\s+/).filter(Boolean).length||0)]);
+            const sections=[];
+            sections.push(docSection_b1());
+            sections.push(docSection_b2());
+            sections.push(docSection_b3());
+            sections.push(docSection_b4());
+            sections.push(docSection_b5());
+            const _sName=(document.getElementById('studentName')?.value||'Student').trim().replace(/\s+/g,'');
+            const _sId=(document.getElementById('studentId')?.value||'ID').trim();
+            const filename=_sId+'_'+_sName+'_JSNRSubmissionBuilder_Submission.docx';
+            const docBody='<h1 style="font-family:Arial,sans-serif;font-size:22px;font-weight:bold;margin-bottom:4px;">JSNR2 - PORTFOLIO SUBMISSION BUILDER</h1>'+
+                '<p style="font-family:Arial,sans-serif;font-size:11px;color:#64748b;margin-bottom:24px;">Generated by JSNR2 - Portfolio submission builder</p>'+
+                sections.join('')+buildMetadataSection(metaRows);
+            const fullHtml='<!DOCTYPE html><html><head><meta charset="utf-8"><title>JSNR2 - Portfolio submission builder</title></head><body style="font-family:Arial,sans-serif;margin:40px;">'+docBody+'</body></html>';
+            const blob=htmlDocx.asBlob(fullHtml);
+            const link=document.createElement('a');
+            link.href=URL.createObjectURL(blob);link.download=filename;
+            document.body.appendChild(link);link.click();document.body.removeChild(link);
+            const modal=document.getElementById('downloadModal');
+            modal.classList.remove('hidden');modal.classList.add('flex');
+        }
+        window.addEventListener('DOMContentLoaded',()=>{
+            restoreState();
+            if(!document.getElementById('contactRows_b3').children.length)addContactRow_b3();
+            updateProgress();
+        });
+    </script>
+</body>
+</html>
